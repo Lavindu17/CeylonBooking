@@ -9,6 +9,7 @@ import {
     Alert,
     Image,
     KeyboardAvoidingView,
+    Modal,
     Platform,
     StyleSheet,
     TextInput,
@@ -23,6 +24,7 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showEmailModal, setShowEmailModal] = useState(false);
     const { signIn } = useAuth();
     const router = useRouter();
     const colorScheme = useColorScheme();
@@ -39,6 +41,8 @@ export default function LoginScreen() {
 
         if (error) {
             Alert.alert('Login Failed', error.message);
+        } else {
+            setShowEmailModal(false);
         }
     }
 
@@ -62,65 +66,98 @@ export default function LoginScreen() {
                     </Body>
                 </View>
 
+                {/* Continue with Email Button */}
+                <Button
+                    title="Continue with Email"
+                    variant="primary"
+                    style={{ marginTop: Spacing.xl }}
+                    onPress={() => setShowEmailModal(true)}
+                />
+
                 {/* Google Button */}
                 <Button
                     title="Continue with Google"
                     variant="primary"
-                    style={{ backgroundColor: '#000000', marginTop: Spacing.xl }}
+                    style={{ backgroundColor: '#000000', marginTop: Spacing.m }}
                     icon={<Ionicons name="logo-google" size={20} color="#FFF" />}
                 // onPress={promptAsync} // Implement Google Auth
                 />
-
-                <View style={styles.divider}>
-                    <View style={[styles.line, { backgroundColor: colors.border }]} />
-                    <Body style={{ color: colors.textSecondary, marginHorizontal: Spacing.m }}>or</Body>
-                    <View style={[styles.line, { backgroundColor: colors.border }]} />
-                </View>
-
-                {/* Email Form */}
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-                    <TextInput
-                        style={[styles.input, {
-                            backgroundColor: colors.backgroundSecondary,
-                            color: colors.textPrimary,
-                            borderColor: colors.border
-                        }]}
-                        placeholder="Email"
-                        placeholderTextColor={colors.textTertiary}
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
-                    <TextInput
-                        style={[styles.input, {
-                            backgroundColor: colors.backgroundSecondary,
-                            color: colors.textPrimary,
-                            borderColor: colors.border
-                        }]}
-                        placeholder="Password"
-                        placeholderTextColor={colors.textTertiary}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
-
-                    <Button
-                        title="Sign In with Email"
-                        variant="primary"
-                        loading={loading}
-                        onPress={handleSignIn}
-                        style={{ marginTop: Spacing.s }}
-                    />
-                </KeyboardAvoidingView>
 
                 <TouchableOpacity
                     onPress={() => router.push('/signup')}
                     style={styles.linkButton}
                 >
-                    <Body style={{ color: colors.tint }}>Don't have an account? Sign Up</Body>
+                    <Body style={{ color: colors.tint }}>Create new account</Body>
                 </TouchableOpacity>
             </View>
+
+            {/* Email Login Modal */}
+            <Modal
+                visible={showEmailModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowEmailModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowEmailModal(false)}
+                >
+                    <TouchableOpacity
+                        style={[styles.modalContent, { backgroundColor: colors.background }]}
+                        activeOpacity={1}
+                        onPress={() => { }}
+                    >
+                        {/* Modal Header */}
+                        <View style={styles.modalHeader}>
+                            <LargeTitle>Sign In with Email</LargeTitle>
+                            <TouchableOpacity
+                                onPress={() => setShowEmailModal(false)}
+                                style={styles.closeButton}
+                            >
+                                <Ionicons name="close" size={28} color={colors.textPrimary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Email Form in Modal */}
+                        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                            <TextInput
+                                style={[styles.input, {
+                                    backgroundColor: colors.backgroundSecondary,
+                                    color: colors.textPrimary,
+                                    borderColor: colors.border
+                                }]}
+                                placeholder="Email"
+                                placeholderTextColor={colors.textTertiary}
+                                value={email}
+                                onChangeText={setEmail}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                            />
+                            <TextInput
+                                style={[styles.input, {
+                                    backgroundColor: colors.backgroundSecondary,
+                                    color: colors.textPrimary,
+                                    borderColor: colors.border
+                                }]}
+                                placeholder="Password"
+                                placeholderTextColor={colors.textTertiary}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
+                            />
+
+                            <Button
+                                title="Sign In"
+                                variant="primary"
+                                loading={loading}
+                                onPress={handleSignIn}
+                                style={{ marginTop: Spacing.s }}
+                            />
+                        </KeyboardAvoidingView>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
@@ -144,25 +181,38 @@ const styles = StyleSheet.create({
     header: {
         alignItems: 'center',
     },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: Spacing.l,
-    },
-    line: {
-        flex: 1,
-        height: 1,
-    },
     input: {
         height: 50,
         borderRadius: BorderRadius.button,
         paddingHorizontal: Spacing.m,
         marginBottom: Spacing.m,
-        borderWidth: 1, // Subtle border
+        borderWidth: 1,
     },
     linkButton: {
         marginTop: Spacing.l,
         alignItems: 'center',
         paddingVertical: Spacing.s,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        borderTopLeftRadius: BorderRadius.bottomSheet,
+        borderTopRightRadius: BorderRadius.bottomSheet,
+        paddingHorizontal: Spacing.l,
+        paddingTop: Spacing.l,
+        paddingBottom: Spacing.xl,
+        minHeight: 400,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.l,
+    },
+    closeButton: {
+        padding: Spacing.xs,
     },
 });
