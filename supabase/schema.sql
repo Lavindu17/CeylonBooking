@@ -1,0 +1,98 @@
+-- Create listings table
+create table public.listings (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  title text not null,
+  description text,
+  price numeric not null,
+  beds integer not null,
+  baths integer not null,
+  image_url text,
+  location text not null,
+  facilities text[] default '{}',
+  
+  -- Google Maps Link (Requested by User)
+  google_maps_url text,
+  
+  -- Coordinates are still required for the App's MapView to render pins at specific locations.
+  -- In a real app, you might extract these from the link or address via an API.
+  latitude double precision,
+  longitude double precision
+);
+
+-- Enable Row Level Security (RLS)
+alter table public.listings enable row level security;
+
+-- Policy: efficient read access for everyone
+create policy "Enable read access for all users"
+  on public.listings for select
+  using (true);
+
+-- Seed Data (Sri Lanka Locations)
+insert into public.listings (title, description, price, beds, baths, image_url, location, facilities, google_maps_url, latitude, longitude)
+values
+  (
+    'Ella Mountain View Cabin', 
+    'A cozy cabin with stunning views of Ella Rock.', 
+    15000, 
+    2, 
+    1, 
+    'https://images.unsplash.com/photo-1449156493391-d2cfa28e468b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80', 
+    'Ella', 
+    ARRAY['Wifi', 'Hot Water', 'Parking'], 
+    'https://maps.app.goo.gl/example1',
+    6.8667, 
+    81.0467
+  ),
+  (
+    'Mirissa Beachfront Villa', 
+    'Direct access to the beach and whale watching.', 
+    25000, 
+    3, 
+    2, 
+    'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80', 
+    'Mirissa', 
+    ARRAY['Wifi', 'AC', 'Pool'], 
+    'https://maps.app.goo.gl/example2',
+    5.9482, 
+    80.4716
+  ),
+  (
+    'Kandy Heritage Home', 
+    'Traditional Kandyan home near the Temple of the Tooth.', 
+    12000, 
+    4, 
+    2, 
+    'https://images.unsplash.com/photo-1580587771525-78b9dba3b91d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1374&q=80', 
+    'Kandy', 
+    ARRAY['Wifi', 'Parking', 'Kitchen'], 
+    'https://maps.app.goo.gl/example3',
+    7.2906, 
+    80.6337
+  ),
+  (
+    'Colombo Luxury Apartment', 
+    'Modern apartment in the heart of the city.', 
+    35000, 
+    2, 
+    2, 
+    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80', 
+    'Colombo', 
+    ARRAY['Wifi', 'AC', 'Pool', 'Gym'], 
+    'https://maps.app.goo.gl/example4',
+    6.9271, 
+    79.8612
+  ),
+  (
+    'Sigiriya Rock Shadow Inn', 
+    'Quiet stay within walking distance to Sigiriya/Lion Rock.', 
+    8000, 
+    1, 
+    1, 
+    'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80', 
+    'Sigiriya', 
+    ARRAY['Wifi', 'Breakfast'], 
+    'https://maps.app.goo.gl/example5',
+    7.9570, 
+    80.7603
+  );
