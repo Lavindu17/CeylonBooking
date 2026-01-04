@@ -12,6 +12,8 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+import LoadingScreen from '@/components/LoadingScreen';
+
 function RootStack() {
   const { session, loading } = useAuth();
   const segments = useSegments();
@@ -31,6 +33,10 @@ function RootStack() {
       router.replace('/(tabs)');
     }
   }, [session, loading, segments]);
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

@@ -1,17 +1,32 @@
 import { BookingModal } from '@/components/BookingModal';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
+import { Body, Caption1, Headline, Title2 } from '@/components/ui/Typography';
+import { BorderRadius, BrandColors, formatPricePerNight, Layout, SemanticColors, Spacing } from '@/constants/Design';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { Listing } from '@/types/listing';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Dimensions,
+    Image,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
+} from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 export default function ListingDetails() {
     const { id } = useLocalSearchParams();
     const [listing, setListing] = useState<Listing | null>(null);
     const [isBookingModalVisible, setBookingModalVisible] = useState(false);
+    const router = useRouter();
+    const colorScheme = useColorScheme();
+    const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
 
     useEffect(() => {
         if (id) fetchListing();
@@ -28,55 +43,123 @@ export default function ListingDetails() {
         else setListing(data);
     }
 
-    if (!listing) return <ThemedView style={styles.loading}><ThemedText>Loading...</ThemedText></ThemedView>;
+    if (!listing) return (
+        <View style={[styles.loading, { backgroundColor: colors.background }]}>
+            <ActivityIndicator size="large" color={BrandColors.ceylonGreen} />
+        </View>
+    );
 
     return (
-        <ThemedView style={styles.container}>
-            <Stack.Screen options={{ title: '', headerTransparent: true, headerTintColor: '#fff' }} />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <Stack.Screen
+                options={{
+                    title: '',
+                    headerTransparent: true,
+                    headerTintColor: '#fff',
+                    headerLeft: () => (
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            style={styles.roundButton}
+                        >
+                            <Ionicons name="arrow-back" size={20} color="#000" />
+                        </TouchableOpacity>
+                    ),
+                    headerRight: () => (
+                        <TouchableOpacity style={styles.roundButton}>
+                            <Ionicons name="heart-outline" size={20} color="#000" />
+                        </TouchableOpacity>
+                    )
+                }}
+            />
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-                <Image source={{ uri: listing.image_url ?? undefined }} style={styles.image} />
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+                {/* Image Carousel (Single Image for now) */}
+                <Image
+                    source={{ uri: listing.image_url ?? undefined }}
+                    style={styles.image}
+                    resizeMode="cover"
+                />
 
                 <View style={styles.content}>
-                    <ThemedText type="title">{listing.title}</ThemedText>
-                    <ThemedText style={styles.location}>{listing.location}</ThemedText>
+                    <Title2>{listing.title}</Title2>
+                    <Body style={{ color: colors.textSecondary, marginTop: Spacing.xs }}>
+                        {listing.location}
+                    </Body>
 
                     <View style={styles.stats}>
-                        <ThemedText>{listing.beds} beds • {listing.baths} baths</ThemedText>
+                        <Caption1 style={{ color: colors.textSecondary }}>
+                            {listing.beds} Beds · {listing.baths || 1} Bath
+                        </Caption1>
                         <View style={styles.rating}>
-                            <Ionicons name="star" size={16} color="#000" />
-                            <ThemedText>4.8 (120 reviews)</ThemedText>
+                            <Ionicons name="star" size={14} color={BrandColors.ceylonGreen} />
+                            <Caption1 style={{ fontWeight: '600' }}>4.8 (120)</Caption1>
                         </View>
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-                    <ThemedText type="subtitle">About this place</ThemedText>
-                    <ThemedText style={styles.description}>{listing.description}</ThemedText>
+                    {/* Host Section */}
+                    <View style={styles.hostSection}>
+                        <View style={styles.hostInfo}>
+                            <Image
+                                source={{ uri: 'https://i.pravatar.cc/150?u=host' }}
+                                style={styles.avatar}
+                            />
+                            <View>
+                                <Headline>Hosted by Sarah</Headline>
+                                <Caption1 style={{ color: colors.textSecondary }}>Superhost</Caption1>
+                            </View>
+                        </View>
+                        <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}>
+                            <Ionicons name="call" size={20} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                    </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-                    <ThemedText type="subtitle">What this place offers</ThemedText>
+                    <Headline style={{ marginBottom: Spacing.m }}>What this place offers</Headline>
                     <View style={styles.facilities}>
                         {listing.facilities?.map((fac, index) => (
-                            <View key={index} style={styles.facilityItem}>
-                                <Ionicons name="checkmark-circle-outline" size={20} color="#000" />
-                                <ThemedText>{fac}</ThemedText>
+                            <View key={index} style={[styles.facilityItem, { width: '48%' }]}>
+                                <Ionicons name="checkmark-circle-outline" size={20} color={colors.textSecondary} />
+                                <Body style={{ fontSize: 15 }}>{fac}</Body>
                             </View>
-                        ))}
+                        )) || <Body style={{ color: colors.textSecondary }}>No specific amenities listed.</Body>}
                     </View>
+
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <Headline style={{ marginBottom: Spacing.m }}>Location</Headline>
+                    <View style={[styles.mapPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
+                        <Ionicons name="map" size={32} color={colors.textDisabled} />
+                        <Body style={{ color: colors.textSecondary, marginTop: Spacing.s }}>Map View</Body>
+                    </View>
+
+                    <Body style={{ marginTop: Spacing.m, lineHeight: 22 }}>
+                        {listing.description}
+                    </Body>
                 </View>
             </ScrollView>
 
-            {/* Footer */}
-            <View style={styles.footer}>
+            {/* Sticky Booking Bar */}
+            <View style={[styles.footer, {
+                backgroundColor: colors.background, // Should use blur if possible, but solid is fine
+                borderTopColor: colors.border,
+                ...styles.shadowTop
+            }]}>
                 <View>
-                    <ThemedText type="defaultSemiBold">LKR {listing.price.toLocaleString()}</ThemedText>
-                    <ThemedText>night</ThemedText>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                        <Title2 style={{ fontSize: 20 }}>{formatPricePerNight(listing.price).split('/')[0]}</Title2>
+                        <Caption1 style={{ color: colors.textSecondary }}>/ night</Caption1>
+                    </View>
+                    <Caption1 style={{ color: colors.textSecondary }}>Oct 15 - 20</Caption1>
                 </View>
-                <TouchableOpacity style={styles.bookButton} onPress={() => setBookingModalVisible(true)}>
-                    <ThemedText style={styles.bookButtonText}>Book Now</ThemedText>
-                </TouchableOpacity>
+
+                <Button
+                    title="Book Now"
+                    onPress={() => setBookingModalVisible(true)}
+                    style={{ width: 140 }}
+                />
             </View>
 
             <BookingModal
@@ -84,7 +167,7 @@ export default function ListingDetails() {
                 onClose={() => setBookingModalVisible(false)}
                 listing={listing}
             />
-        </ThemedView>
+        </View>
     );
 }
 
@@ -98,67 +181,95 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     image: {
-        width: '100%',
-        height: 300,
+        width: width,
+        height: Layout.carouselHeight, // 300
+    },
+    roundButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        ...Layout.shadows // small
     },
     content: {
-        padding: 24,
-    },
-    location: {
-        fontSize: 16,
-        color: '#666',
-        marginTop: 4,
+        padding: Spacing.l,
     },
     stats: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 16,
+        gap: Spacing.m,
+        marginTop: Spacing.s,
+        alignItems: 'center',
     },
     rating: {
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 4,
     },
     divider: {
         height: 1,
-        backgroundColor: '#eee',
-        marginVertical: 24,
+        marginVertical: Spacing.l,
     },
-    description: {
-        marginTop: 8,
-        lineHeight: 22,
-        color: '#444',
+    hostSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    hostInfo: {
+        flexDirection: 'row',
+        gap: Spacing.m,
+        alignItems: 'center',
+    },
+    avatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     facilities: {
-        marginTop: 12,
-        gap: 8,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.s,
     },
     facilityItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: Spacing.s,
+        marginBottom: Spacing.s,
+    },
+    mapPlaceholder: {
+        height: 180,
+        borderRadius: BorderRadius.card,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     footer: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#fff',
-        padding: 24,
+        padding: Spacing.m,
+        paddingBottom: Spacing.xl, // Safe area
         borderTopWidth: 1,
-        borderTopColor: '#eee',
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    bookButton: {
-        backgroundColor: '#FF385C',
-        paddingVertical: 14,
-        paddingHorizontal: 32,
-        borderRadius: 8,
-    },
-    bookButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
+    shadowTop: {
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: -4,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 5,
     }
 });

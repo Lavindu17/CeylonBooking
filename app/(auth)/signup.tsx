@@ -1,9 +1,19 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
+import { Body, LargeTitle } from '@/components/ui/Typography';
+import { BorderRadius, SemanticColors, Spacing } from '@/constants/Design';
 import { useAuth } from '@/contexts/AuthContext';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
+    useColorScheme
+} from 'react-native';
 
 export default function SignupScreen() {
     const [email, setEmail] = useState('');
@@ -11,8 +21,14 @@ export default function SignupScreen() {
     const [loading, setLoading] = useState(false);
     const { signUp } = useAuth();
     const router = useRouter();
+    const colorScheme = useColorScheme();
+    const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
 
     async function handleSignUp() {
+        if (!email || !password) {
+            Alert.alert('Error', 'Please enter both email and password');
+            return;
+        }
         setLoading(true);
         const { error } = await signUp(email, password);
         setLoading(false);
@@ -26,77 +42,84 @@ export default function SignupScreen() {
     }
 
     return (
-        <ThemedView style={styles.container}>
-            <Stack.Screen options={{ title: 'Sign Up' }} />
-            <ThemedText type="title" style={styles.title}>Create Account</ThemedText>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <Stack.Screen options={{ title: 'Sign Up', headerBackTitle: 'Login' }} />
 
-            <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#888"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#888"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+            <View style={styles.header}>
+                <LargeTitle align="center">Create Account</LargeTitle>
+                <Body align="center" style={{ color: colors.textSecondary, marginTop: Spacing.s }}>
+                    Join us to explore the best of Sri Lanka
+                </Body>
+            </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleSignUp} disabled={loading}>
-                <ThemedText style={styles.buttonText}>{loading ? 'Signing up...' : 'Sign Up'}</ThemedText>
-            </TouchableOpacity>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.form}
+            >
+                <TextInput
+                    style={[styles.input, {
+                        backgroundColor: colors.backgroundSecondary,
+                        color: colors.textPrimary,
+                        borderColor: colors.border
+                    }]}
+                    placeholder="Email"
+                    placeholderTextColor={colors.textTertiary}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                />
+                <TextInput
+                    style={[styles.input, {
+                        backgroundColor: colors.backgroundSecondary,
+                        color: colors.textPrimary,
+                        borderColor: colors.border
+                    }]}
+                    placeholder="Password"
+                    placeholderTextColor={colors.textTertiary}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                />
+
+                <Button
+                    title="Sign Up"
+                    variant="primary"
+                    loading={loading}
+                    onPress={handleSignUp}
+                    style={{ marginTop: Spacing.s }}
+                />
+            </KeyboardAvoidingView>
 
             <TouchableOpacity onPress={() => router.back()} style={styles.linkButton}>
-                <ThemedText style={styles.linkText}>Already have an account? Login</ThemedText>
+                <Body style={{ color: colors.tint }}>Already have an account? Login</Body>
             </TouchableOpacity>
-        </ThemedView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
+        padding: Spacing.l,
         justifyContent: 'center',
     },
-    title: {
-        fontSize: 32,
-        marginBottom: 40,
-        textAlign: 'center',
+    header: {
+        marginBottom: Spacing.xl,
+        alignItems: 'center',
+    },
+    form: {
+        width: '100%',
     },
     input: {
         height: 50,
+        borderRadius: BorderRadius.button,
+        paddingHorizontal: Spacing.m,
+        marginBottom: Spacing.m,
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        marginBottom: 20,
-        color: '#000',
-        backgroundColor: '#fff',
-    },
-    button: {
-        backgroundColor: '#FF385C',
-        height: 50,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
     },
     linkButton: {
-        marginTop: 20,
+        marginTop: Spacing.xl,
         alignItems: 'center',
-    },
-    linkText: {
-        color: '#FF385C',
     },
 });

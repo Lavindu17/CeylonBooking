@@ -1,8 +1,10 @@
+import { BorderRadius, Layout, SemanticColors, Spacing, formatPricePerNight } from '@/constants/Design';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Listing } from '@/types/listing';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { ThemedText } from './themed-text';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { BodyBold, Caption1, Headline } from './ui/Typography';
 
 type Props = {
     listing: Listing;
@@ -10,77 +12,67 @@ type Props = {
 
 export function ListingCard({ listing }: Props) {
     const router = useRouter();
+    const colorScheme = useColorScheme();
+    const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
 
     return (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => {
-                // Navigate to details page
-                router.push(`/listing/${listing.id}`);
-                // console.log('Pressed listing:', listing.id);
-            }}
+        <Pressable
+            style={({ pressed }) => [styles.card, { opacity: pressed ? 0.9 : 1 }]}
+            onPress={() => router.push(`/listing/${listing.id}`)}
         >
-            <Image source={{ uri: listing.image_url ?? 'https://via.placeholder.com/400' }} style={styles.image} />
+            <Image
+                source={{ uri: listing.image_url ?? 'https://via.placeholder.com/400' }}
+                style={styles.image}
+                resizeMode="cover"
+            />
 
             <View style={styles.content}>
                 <View style={styles.header}>
-                    <ThemedText type="subtitle" style={styles.title}>{listing.location}</ThemedText>
+                    <Headline numberOfLines={1} style={{ flex: 1 }}>{listing.title}</Headline>
                     <View style={styles.rating}>
-                        <Ionicons name="star" size={14} color="#000" />
-                        <ThemedText style={styles.ratingText}>4.8</ThemedText>
+                        <Ionicons name="star" size={12} color={colors.textPrimary} />
+                        <Caption1>4.8</Caption1>
                     </View>
                 </View>
-                <ThemedText style={styles.description}>{listing.title}</ThemedText>
-                <ThemedText style={styles.description}>{listing.beds} beds</ThemedText>
+
+                <Caption1 style={{ color: colors.textSecondary }}>
+                    {listing.beds} beds · {listing.baths || 1} baths
+                </Caption1>
 
                 <View style={styles.priceContainer}>
-                    <ThemedText type="defaultSemiBold">LKR {listing.price.toLocaleString()}</ThemedText>
-                    <ThemedText> night</ThemedText>
+                    <BodyBold>{formatPricePerNight(listing.price)}</BodyBold>
                 </View>
             </View>
-        </TouchableOpacity>
+        </Pressable>
     );
 }
 
-import { View } from 'react-native';
-
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: 'transparent',
-        marginBottom: 24,
+        flex: 1,
+        marginBottom: Spacing.l,
     },
     image: {
         width: '100%',
-        height: 300,
-        borderRadius: 12,
-        marginBottom: 10,
+        height: Layout.cardImageHeight, // 140
+        borderRadius: BorderRadius.card,
+        marginBottom: Spacing.s,
     },
     content: {
-        gap: 4,
+        gap: 2,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-    },
-    title: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    description: {
-        color: '#666',
-    },
-    priceContainer: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        marginTop: 4,
+        gap: Spacing.xs,
     },
     rating: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 2,
     },
-    ratingText: {
-        fontSize: 14,
-    }
+    priceContainer: {
+        marginTop: 2,
+    },
 });
