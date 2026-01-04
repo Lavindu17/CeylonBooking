@@ -137,6 +137,32 @@ create policy "Users can view own bookings"
 create policy "Users can create bookings"
   on public.bookings for insert
   with check (auth.uid() = user_id);
-  
--- Policy: Hosts (if we had a host role) or Listing Owners should see bookings for their listings.
--- For now, we'll keep it simple: Authenticated users can insert.
+
+-- Policy: Hosts can view bookings for their listings
+create policy "Hosts can view bookings for their listings"
+  on public.bookings for select
+  using (
+    exists (
+      select 1 from public.listings
+      where listings.id = bookings.listing_id
+      and listings.host_id = auth.uid()
+    )
+  );
+
+-- Policy: Hosts can update booking status for their listings
+create policy "Hosts can update booking status"
+  on public.bookings for update
+  using (
+    exists (
+      select 1 from public.listings
+      where listings.id = bookings.listing_id
+      and listings.host_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.listings
+      where listings.id = bookings.listing_id
+      and listings.host_id = auth.uid()
+    )
+  );
