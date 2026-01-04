@@ -1,0 +1,815 @@
+# 🍎 CeylonStay — UI & UX Design Specification
+
+*(Apple Human Interface–Inspired)*
+
+---
+
+## 0. Design Philosophy (Foundation)
+
+**Design goals**
+
+* Calm, confident, familiar
+* Native-feeling on iOS
+* Clear hierarchy, no clutter
+* Works with Dynamic Type & Dark Mode
+
+**Core principles**
+
+* Clarity > decoration
+* One primary action per screen
+* Progressive disclosure everywhere
+* System components first, custom only when needed
+
+---
+
+# 1. Global Design System
+
+## 1.1 Typography (Exact)
+
+👉 **Use Apple System Font (SF Pro)**
+*(React Native: default system font, do NOT specify custom fonts)*
+
+| Purpose             | iOS Text Style | Size | Weight   |
+| ------------------- | -------------- | ---- | -------- |
+| Large Screen Titles | LargeTitle     | ~34  | Bold     |
+| Section Titles      | Title2         | ~22  | Semibold |
+| Card Titles         | Headline       | ~17  | Semibold |
+| Body Text           | Body           | ~16  | Regular  |
+| Secondary Text      | Subheadline    | ~15  | Regular  |
+| Captions            | Caption1       | ~12  | Regular  |
+| Button Text         | Headline       | ~17  | Semibold |
+
+✅ **Dynamic Type enabled everywhere**
+
+---
+
+## 1.2 Color System (Semantic & Apple-style)
+
+### Primary Brand Color
+
+**Ceylon Green**
+
+```
+#1F7A5C
+```
+
+Used for:
+
+* Primary buttons
+* Selected states
+* Highlights
+* Date selection
+
+---
+
+### Semantic Colors (Use system equivalents)
+
+| Purpose              | Light   | Dark    |
+| -------------------- | ------- | ------- |
+| Background           | #FFFFFF | #000000 |
+| Secondary Background | #F2F2F7 | #1C1C1E |
+| Card Background      | #FFFFFF | #2C2C2E |
+| Primary Text         | #000000 | #FFFFFF |
+| Secondary Text       | #6E6E73 | #A1A1A6 |
+| Disabled             | #C7C7CC | #3A3A3C |
+| Divider              | #E5E5EA | #38383A |
+
+👉 In RN use:
+
+* `bg-white dark:bg-black`
+* `text-black dark:text-white`
+* etc.
+
+---
+
+## 1.3 Spacing System (Consistent Rhythm)
+
+| Size | Value |
+| ---- | ----- |
+| XS   | 4     |
+| S    | 8     |
+| M    | 16    |
+| L    | 24    |
+| XL   | 32    |
+
+👉 Most screens use **16px horizontal padding**
+
+---
+
+## 1.4 Corner Radius
+
+| Component     | Radius |
+| ------------- | ------ |
+| Buttons       | 12     |
+| Cards         | 16     |
+| Images        | 16     |
+| Bottom Sheets | 24     |
+
+---
+
+## 1.5 Shadows (Subtle Only)
+
+Apple-style shadows are **soft and minimal**.
+
+```
+shadowColor: #000
+shadowOpacity: 0.08
+shadowRadius: 8
+shadowOffset: { width: 0, height: 4 }
+```
+
+---
+
+# 2. Bottom Tab Bar
+
+**Visible on:** Home, Search, Profile
+
+| Tab     | Label   | SF Symbol          |
+| ------- | ------- | ------------------ |
+| Home    | Home    | house.fill         |
+| Search  | Search  | magnifyingglass    |
+| Profile | Profile | person.crop.circle |
+
+**Properties**
+
+* Height: System default
+* Active color: Primary Green
+* Inactive color: Secondary Text
+* No badges unless critical
+
+---
+
+# 3. Screen-by-Screen UI Specification
+
+---
+
+## 3.1 Loading Screen
+
+### Layout
+
+* Centered logo
+* Full screen background
+
+### Styles
+
+* Background: `systemBackground`
+* Logo width: 120
+* Fade-in animation (300ms)
+
+🚫 No spinners if loading < 2s
+
+---
+
+## 3.2 Authentication Screen
+
+### Structure
+
+1. Hero Image
+2. Title
+3. Subtitle
+4. Google Button
+
+---
+
+### Hero Image
+
+* Height: 45% of screen
+* Content: Sri Lanka landscape
+* Resize: `cover`
+* No text overlay
+
+---
+
+### Title
+
+**Text:**
+
+> Welcome to CeylonStay
+
+* Font: LargeTitle
+* Margin top: 24
+* Alignment: Center
+
+---
+
+### Subtitle
+
+**Text:**
+
+> Find your perfect stay across Sri Lanka
+
+* Font: Body
+* Color: Secondary Text
+* Margin top: 8
+* Alignment: Center
+
+---
+
+### Google Button
+
+**Text:**
+
+> Continue with Google
+
+**Styles**
+
+* Height: 52
+* Radius: 12
+* Background: Black (Google standard)
+* Text: White
+* Icon: Google logo (left)
+* Margin top: 32
+
+---
+
+## 3.3 Home Page
+
+---
+
+### Top Search Bar
+
+**Placeholder text:**
+
+> Search by town or city
+
+**Styles**
+
+* Height: 44
+* Radius: 12
+* Background: Secondary Background
+* Icon: magnifyingglass
+* Padding horizontal: 12
+
+Tap → navigates to Search screen
+
+---
+
+### Featured Section
+
+**Section title examples**
+
+* “Popular Getaways”
+* “Near You”
+
+**Styles**
+
+* Title font: Title2
+* Margin vertical: 16
+
+**Cards**
+
+* Width: 260
+* Height: 160
+* Radius: 16
+* Image overlay gradient (bottom only)
+* Title bottom-left, white text
+
+---
+
+### Listings Grid
+
+**Grid**
+
+* 2 columns
+* Gap: 16
+
+**Card**
+
+* Image height: 140
+* Radius: 16
+* Shadow: subtle
+
+**Text**
+
+* Title: Headline (1 line)
+* Price: `LKR 8,500 / night`
+* Beds/Baths: Caption
+
+---
+
+## 3.4 Search Page
+
+---
+
+### Filters (Top)
+
+* Location search field
+* Beds selector (stepper)
+
+**Hint (shown once):**
+
+> Tip: Shake your phone to clear filters
+
+---
+
+### Result List
+
+**Card Layout**
+
+* Image left (72x72)
+* Right content stacked
+
+**Text**
+
+* Name: Headline
+* Price: `LKR X / night`
+* Beds/Baths: Caption
+
+Tap → Details page
+
+---
+
+## 3.5 Details Page
+
+Scrollable view + sticky bottom bar
+
+---
+
+### Navigation Bar
+
+* Back button (system)
+* Heart icon (favorite)
+
+---
+
+### Image Carousel
+
+* Height: 300
+* Paging enabled
+* 3 images minimum
+
+---
+
+### Title
+
+* Font: Title2
+* Margin top: 16
+
+---
+
+### Beds & Baths
+
+**Format:**
+
+> 2 Beds · 1 Bath
+
+* Font: Subheadline
+* Color: Secondary Text
+
+---
+
+### Host Section
+
+**Layout**
+
+* Avatar (48x48, circle)
+* Host name
+* Call icon (phone.fill)
+
+---
+
+### Facilities
+
+Icons (SF Symbols) + label:
+
+* wifi
+* car
+* tv
+* snowflake (AC)
+
+Grid: 2 columns
+
+---
+
+### Map
+
+* Height: 180
+* Rounded corners
+* Disabled gestures (scroll safe)
+
+---
+
+### Sticky Booking Bar (Bottom)
+
+**Styles**
+
+* Height: 72
+* Background: Blur / Secondary background
+* Padding: 16
+
+**Left**
+
+> LKR 8,500 / night
+
+**Right Button**
+
+> Book Now
+
+* Background: Primary Green
+* Radius: 12
+
+---
+
+## 3.6 Booking Page
+
+---
+
+### Calendar
+
+* Disabled dates: Gray
+* Available: White
+* Selected start/end: Primary Green
+* Range: Primary Green @ 50% opacity
+
+---
+
+### Book Button
+
+**Text:**
+
+> Request Booking
+
+* Height: 52
+* Radius: 12
+* Background: Primary Green
+
+---
+
+### Info Text
+
+> You’ll receive an email once the host confirms your booking.
+
+* Font: Caption
+* Color: Secondary Text
+* Centered
+
+---
+
+## 3.7 Profile Page
+
+---
+
+### Header
+
+* Profile image (80x80)
+* Name (Title2)
+
+---
+
+### Sections (List Style)
+
+#### My Bookings
+
+Each item:
+
+* Listing image
+* Dates
+* Price
+* Status badge (Pending / Confirmed)
+
+#### My Listings
+
+* “Create New Listing”
+* Edit existing listings
+
+---
+
+### Logout
+
+* Text button
+* Color: Red
+* Separated section
+
+---
+
+# 4. Final Notes (For High Grades)
+
+* Uses **Apple HIG patterns**
+* Strong **information hierarchy**
+* Hardware features used **tastefully**
+* Clear, predictable navigation
+* Excellent accessibility foundations
+
+---
+
+Perfect — this is an **excellent place to score extra marks**, because *host-side flows* are where most student projects fall apart.
+
+I’ll design this as a **complete Apple-style Host Listing Creation UI**, optimized for:
+
+* **Clarity**
+* **Low cognitive load**
+* **Progressive disclosure**
+* **Native iOS patterns**
+* **React Native + Expo feasibility**
+
+This will feel like something Apple itself would approve.
+
+---
+
+# 🍎 CeylonStay — Host Listing Creation UI (Apple-Style Spec)
+
+## Core UX Strategy (Very Important)
+
+**Mental model:**
+
+> “Create a listing in small, confident steps — never overwhelm.”
+
+Instead of **one long form**, we use a **step-based flow**.
+
+✅ Apple prefers **guided, linear flows** for complex input.
+
+---
+
+## Overall Structure
+
+### Navigation Pattern
+
+* **Modal flow**
+* **Push-based steps**
+* **Progress indicator**
+* **Cancel at any time**
+
+```
+Profile → My Listings → Create New Listing
+```
+
+---
+
+## Step Overview
+
+| Step | Purpose                |
+| ---- | ---------------------- |
+| 1    | Basic Info             |
+| 2    | Location               |
+| 3    | Details                |
+| 4    | Amenities              |
+| 5    | Photos                 |
+| 6    | Pricing & Availability |
+| 7    | Review & Publish       |
+
+---
+
+## Global UI Elements (All Steps)
+
+### Navigation Bar
+
+* Left: `Cancel`
+* Title: Step title
+* Right: `Next` (disabled until valid)
+
+### Progress Indicator
+
+* Thin progress bar under nav bar
+* Height: 3
+* Color: Primary Green
+
+---
+
+# STEP 1 — Basic Info
+
+### Goal
+
+“What is this place?”
+
+---
+
+### Fields (List Style Form)
+
+**1. Listing Title**
+
+* Placeholder:
+  `e.g. Cozy Villa in Ella`
+* Max: 50 chars
+* Font: Body
+
+**2. Property Type**
+
+* Picker (Action Sheet)
+* Options:
+
+  * Entire place
+  * Private room
+  * Shared room
+
+**3. Description**
+
+* Multiline
+* Placeholder:
+  `Tell guests what makes your place special`
+* Max: 500 chars
+
+---
+
+### Layout
+
+* Grouped list
+* Section headers
+
+---
+
+# STEP 2 — Location
+
+### Goal
+
+“Where is it?”
+
+---
+
+### Components
+
+**1. Address Search**
+
+* SearchField
+* Placeholder:
+  `Search for town or area`
+
+**2. Map Preview**
+
+* Height: 220
+* Pin placed automatically
+* Draggable pin (optional)
+
+**Helper text**
+
+> Guests will see the approximate location after booking.
+
+---
+
+# STEP 3 — Property Details
+
+### Goal
+
+“What does the place offer?”
+
+---
+
+### Controls (Stepper Style)
+
+| Field     | Min | Max |
+| --------- | --- | --- |
+| Beds      | 1   | 10  |
+| Bathrooms | 1   | 10  |
+| Guests    | 1   | 20  |
+
+Apple rule:
+
+> Use steppers for small numeric ranges.
+
+---
+
+# STEP 4 — Amenities
+
+### Goal
+
+“Quickly select what’s available”
+
+---
+
+### Layout
+
+* Grid (2 columns)
+* Toggle buttons
+
+### Common Amenities
+
+* Wi-Fi
+* Air Conditioning
+* Parking
+* Kitchen
+* TV
+* Washing Machine
+
+### Toggle Style
+
+* Rounded pill
+* Selected: Primary Green
+* Unselected: Secondary Background
+
+---
+
+# STEP 5 — Photos
+
+### Goal
+
+“Show, don’t tell”
+
+---
+
+### Photo Picker
+
+* Use system photo picker
+* Allow multiple selection
+* Max: 10 images
+
+### Photo Grid
+
+* 3 columns
+* Drag to reorder
+* First photo = cover
+
+**Helper text**
+
+> Your first photo will be the cover image.
+
+---
+
+# STEP 6 — Pricing & Availability
+
+### Pricing
+
+**Price per Night**
+
+* Numeric input
+* Prefix: `LKR`
+* Placeholder:
+  `e.g. 8500`
+
+---
+
+### Availability Calendar
+
+* Host can:
+
+  * Mark unavailable dates
+  * Block specific days
+
+**Visual Rules**
+
+* Available: White
+* Blocked: Gray
+* Selected range: Primary Green
+
+---
+
+# STEP 7 — Review & Publish
+
+### Goal
+
+“Confidence before publishing”
+
+---
+
+### Preview Card
+
+* Cover image
+* Title
+* Location
+* Price
+
+---
+
+### Editable Sections
+
+Each section has an **Edit** button:
+
+* Basic Info
+* Location
+* Details
+* Amenities
+* Photos
+* Pricing
+
+---
+
+### Publish Button
+
+**Text:**
+
+> Publish Listing
+
+* Height: 56
+* Radius: 14
+* Background: Primary Green
+
+---
+
+## Success State
+
+After publishing:
+
+* Full-screen success message
+* Checkmark icon
+* Text:
+
+> Your listing is now live!
+
+---
+
+## Apple-Level UX Details (This Scores Marks)
+
+### Validation
+
+* Inline validation
+* No error popups
+* Clear helper text
+
+### Autosave
+
+* Save progress automatically
+* Resume later
+
+### Accessibility
+
+* Dynamic Type
+* Large tap targets
+* VoiceOver-friendly labels
