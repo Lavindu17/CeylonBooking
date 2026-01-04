@@ -15,9 +15,9 @@ export function ListingCard({ listing }: Props) {
         <TouchableOpacity
             style={styles.card}
             onPress={() => {
-                // Navigate to details page (Phase 3)
-                // router.push(`/listing/${listing.id}`);
-                console.log('Pressed listing:', listing.id);
+                // Navigate to details page
+                router.push(`/listing/${listing.id}`);
+                // console.log('Pressed listing:', listing.id);
             }}
         >
             <Image source={{ uri: listing.image_url ?? 'https://via.placeholder.com/400' }} style={styles.image} />

@@ -96,3 +96,31 @@ values
     7.9570, 
     80.7603
   );
+
+-- Create bookings table
+create table public.bookings (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  listing_id uuid references public.listings(id) not null,
+  user_id uuid references auth.users(id) not null,
+  start_date date not null,
+  end_date date not null,
+  total_price numeric not null,
+  status text check (status in ('pending', 'confirmed', 'cancelled')) default 'pending'
+);
+
+-- Enable RLS for bookings
+alter table public.bookings enable row level security;
+
+-- Policy: Users can see their own bookings
+create policy "Users can view own bookings"
+  on public.bookings for select
+  using (auth.uid() = user_id);
+
+-- Policy: Users can insert their own bookings
+create policy "Users can create bookings"
+  on public.bookings for insert
+  with check (auth.uid() = user_id);
+  
+-- Policy: Hosts (if we had a host role) or Listing Owners should see bookings for their listings.
+-- For now, we'll keep it simple: Authenticated users can insert.

@@ -1,49 +1,25 @@
 import { Listing } from '@/types/listing';
-import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { ThemedText } from './themed-text';
 
 type Props = {
     listings: Listing[];
 };
 
-const INITIAL_REGION = {
-    latitude: 7.8731, // Center of Sri Lanka approx
-    longitude: 80.7718,
-    latitudeDelta: 4.0,
-    longitudeDelta: 4.0,
-};
-
 export function ListingMap({ listings }: Props) {
-    const router = useRouter();
-
+    // Note: react-native-maps requires a development build
+    // For Expo Go, we'll show a message instead
     return (
         <View style={styles.container}>
-            <MapView
-                style={StyleSheet.absoluteFill}
-                provider={PROVIDER_DEFAULT}
-                initialRegion={INITIAL_REGION}
-                showsUserLocation
-                showsMyLocationButton
-            >
-                {listings.map((listing) => (
-                    listing.latitude && listing.longitude ? (
-                        <Marker
-                            key={listing.id}
-                            coordinate={{
-                                latitude: listing.latitude,
-                                longitude: listing.longitude,
-                            }}
-                            title={listing.title}
-                            description={`LKR ${listing.price}`}
-                            onCalloutPress={() => {
-                                // router.push(`/listing/${listing.id}`);
-                                console.log('Callout pressed:', listing.id);
-                            }}
-                        />
-                    ) : null
-                ))}
-            </MapView>
+            <View style={styles.messageContainer}>
+                <ThemedText style={styles.message}>
+                    📍 Map view requires a development build
+                </ThemedText>
+                <ThemedText style={styles.subMessage}>
+                    Install the correct version of react-native-maps{'\n'}
+                    or use a custom development build to enable maps
+                </ThemedText>
+            </View>
         </View>
     );
 }
@@ -51,5 +27,24 @@ export function ListingMap({ listings }: Props) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    messageContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+        backgroundColor: '#f7f7f7',
+    },
+    message: {
+        fontSize: 18,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    subMessage: {
+        fontSize: 14,
+        textAlign: 'center',
+        color: '#666',
+        lineHeight: 20,
     },
 });

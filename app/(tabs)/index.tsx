@@ -1,22 +1,45 @@
 import { ListingCard } from '@/components/ListingCard';
 import { ListingMap } from '@/components/ListingMap';
 import { ThemedText } from '@/components/themed-text';
+import { useShake } from '@/hooks/useShake';
 import { supabase } from '@/lib/supabase';
 import { Listing } from '@/types/listing';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
   const [listings, setListings] = useState<Listing[]>([]);
+  const [filteredListings, setFilteredListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchListings();
   }, []);
+
+  useEffect(() => {
+    if (searchQuery) {
+      setFilteredListings(listings.filter(l =>
+        l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        l.location.toLowerCase().includes(searchQuery.toLowerCase())
+      ));
+    } else {
+      setFilteredListings(listings);
+    }
+  }, [searchQuery, listings]);
+
+  // Shake to Reset
+  useShake(() => {
+    if (searchQuery) {
+      setSearchQuery('');
+      Vibration.vibrate();
+      alert('Filters cleared!');
+    }
+  });
 
   async function fetchListings() {
     setLoading(true);
@@ -28,6 +51,7 @@ export default function ExploreScreen() {
       console.error('Error fetching listings:', error);
     } else {
       setListings(data || []);
+      setFilteredListings(data || []);
     }
     setLoading(false);
   }
@@ -36,11 +60,21 @@ export default function ExploreScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Search Header Placeholder */}
+      {/* Search Header */}
       <View style={styles.header}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#000" />
-          <ThemedText style={styles.searchText}>Where to?</ThemedText>
+          <TextInput
+            placeholder="Where to?"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#ccc" />
+            </TouchableOpacity>
+          )}
         </View>
         <TouchableOpacity style={styles.filterButton}>
           <Ionicons name="options-outline" size={20} color="#000" />
@@ -53,14 +87,15 @@ export default function ExploreScreen() {
           <ActivityIndicator size="large" color="#FF385C" style={{ marginTop: 50 }} />
         ) : viewMode === 'list' ? (
           <FlatList
-            data={listings}
+            data={filteredListings}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <ListingCard listing={item} />}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            ListEmptyComponent={<ThemedText style={{ textAlign: 'center', marginTop: 20 }}>No listings found.</ThemedText>}
           />
         ) : (
-          <ListingMap listings={listings} />
+          <ListingMap listings={filteredListings} />
         )}
       </View>
 
@@ -103,6 +138,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
   },
   searchText: {
     fontWeight: '600',

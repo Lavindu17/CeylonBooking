@@ -44,7 +44,11 @@ function RootStack() {
   );
 }
 
+import { useGeofencing } from '@/hooks/useGeofencing';
+
 export default function RootLayout() {
+  useGeofencing();
+
   return (
     <AuthProvider>
       <RootStack />
