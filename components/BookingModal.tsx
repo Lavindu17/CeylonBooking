@@ -84,6 +84,13 @@ export function BookingModal({ visible, onClose, listing }: Props) {
     return (
         <Modal visible={visible} animationType="slide" transparent>
             <View style={styles.overlay}>
+                <TouchableOpacity
+                    style={styles.overlayTouchable}
+                    activeOpacity={1}
+                    onPress={onClose}
+                >
+                    <View />
+                </TouchableOpacity>
                 <View style={[styles.container, { backgroundColor: colors.background }]}>
                     <View style={styles.header}>
                         <Title2>Select Dates</Title2>
@@ -138,8 +145,15 @@ export function BookingModal({ visible, onClose, listing }: Props) {
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.65)',
         justifyContent: 'flex-end',
+    },
+    overlayTouchable: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
     },
     container: {
         borderTopLeftRadius: BorderRadius.bottomSheet,

@@ -166,25 +166,27 @@ export default function ListingDetails() {
             </ScrollView>
 
             {/* Sticky Booking Bar */}
-            <View style={[styles.footer, {
-                backgroundColor: colors.background, // Should use blur if possible, but solid is fine
-                borderTopColor: colors.border,
-                ...styles.shadowTop
-            }]}>
-                <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                        <Title2 style={{ fontSize: 20 }}>{formatPricePerNight(listing.price).split('/')[0]}</Title2>
-                        <Caption1 style={{ color: colors.textSecondary }}>/ night</Caption1>
+            {!isBookingModalVisible && (
+                <View style={[styles.footer, {
+                    backgroundColor: colors.background, // Should use blur if possible, but solid is fine
+                    borderTopColor: colors.border,
+                    ...styles.shadowTop
+                }]}>
+                    <View>
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                            <Title2 style={{ fontSize: 20 }}>{formatPricePerNight(listing.price).split('/')[0]}</Title2>
+                            <Caption1 style={{ color: colors.textSecondary }}>/ night</Caption1>
+                        </View>
+                        <Caption1 style={{ color: colors.textSecondary }}>Oct 15 - 20</Caption1>
                     </View>
-                    <Caption1 style={{ color: colors.textSecondary }}>Oct 15 - 20</Caption1>
-                </View>
 
-                <Button
-                    title="Book Now"
-                    onPress={() => setBookingModalVisible(true)}
-                    style={{ width: 140 }}
-                />
-            </View>
+                    <Button
+                        title="Book Now"
+                        onPress={() => setBookingModalVisible(true)}
+                        style={{ width: 140 }}
+                    />
+                </View>
+            )}
 
             <BookingModal
                 visible={isBookingModalVisible}
