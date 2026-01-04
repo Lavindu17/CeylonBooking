@@ -128,7 +128,8 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.m,
     marginTop: Spacing.s,
     marginBottom: Spacing.l,
-    padding: Spacing.m,
+    paddingHorizontal: Spacing.m,
+    paddingVertical: 11,
     borderRadius: BorderRadius.button,
     gap: Spacing.s,
     // Soft shadow
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 2,
-    height: 44,
+    minHeight: 44,
   },
   searchText: { // Placeholder style
     color: SemanticColors.light.textTertiary,

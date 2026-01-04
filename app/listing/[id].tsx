@@ -1,7 +1,7 @@
 import { BookingModal } from '@/components/BookingModal';
 import { Button } from '@/components/ui/Button';
 import { Body, Caption1, Headline, Title2 } from '@/components/ui/Typography';
-import { BorderRadius, BrandColors, formatPricePerNight, Layout, SemanticColors, Spacing } from '@/constants/Design';
+import { BorderRadius, BrandColors, formatPricePerNight, Layout, SemanticColors, Shadows, Spacing } from '@/constants/Design';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { Listing } from '@/types/listing';
@@ -17,6 +17,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 
 const { width } = Dimensions.get('window');
 
@@ -130,10 +131,33 @@ export default function ListingDetails() {
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                     <Headline style={{ marginBottom: Spacing.m }}>Location</Headline>
-                    <View style={[styles.mapPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
-                        <Ionicons name="map" size={32} color={colors.textDisabled} />
-                        <Body style={{ color: colors.textSecondary, marginTop: Spacing.s }}>Map View</Body>
-                    </View>
+                    {listing.latitude && listing.longitude ? (
+                        <MapView
+                            style={styles.map}
+                            initialRegion={{
+                                latitude: listing.latitude,
+                                longitude: listing.longitude,
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01,
+                            }}
+                            scrollEnabled={false}
+                            zoomEnabled={false}
+                        >
+                            <Marker
+                                coordinate={{
+                                    latitude: listing.latitude,
+                                    longitude: listing.longitude,
+                                }}
+                                title={listing.title}
+                                description={listing.location}
+                            />
+                        </MapView>
+                    ) : (
+                        <View style={[styles.mapPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
+                            <Ionicons name="map" size={32} color={colors.textDisabled} />
+                            <Body style={{ color: colors.textSecondary, marginTop: Spacing.s }}>Location not available</Body>
+                        </View>
+                    )}
 
                     <Body style={{ marginTop: Spacing.m, lineHeight: 22 }}>
                         {listing.description}
@@ -191,7 +215,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.9)',
         justifyContent: 'center',
         alignItems: 'center',
-        ...Layout.shadows // small
+        ...(Shadows.small as object)
     },
     content: {
         padding: Spacing.l,
@@ -243,6 +267,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: Spacing.s,
         marginBottom: Spacing.s,
+    },
+    map: {
+        height: 180,
+        borderRadius: BorderRadius.card,
+        overflow: 'hidden',
     },
     mapPlaceholder: {
         height: 180,
