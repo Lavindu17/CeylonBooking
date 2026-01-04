@@ -1,0 +1,75 @@
+# CeylonBooking Detailed Implementation Plan
+
+## Phase 0: Foundation
+Goal: Stable, error-free development environment.
+
+- [ ] **Install Dependencies**:
+    - `nativewind`, `tailwindcss` (and dev deps)
+    - `react-native-maps`
+    - `@supabase/supabase-js`, `@react-native-async-storage/async-storage` (for auth persistence)
+    - `expo-sensors`, `expo-location` (for later phases, can install now)
+- [ ] **Configuration**:
+    - Setup `tailwind.config.js`
+    - Update `babel.config.js` for NativeWind
+    - Verify `app/_layout.tsx` is clean and ready.
+
+## Phase 1: Navigation & Authentication
+Goal: Secure user access and session persistence.
+
+- [ ] **Navigation Structure**:
+    - `app/(auth)/login.tsx`
+    - `app/(auth)/signup.tsx`
+    - `app/(tabs)/index.tsx` (Home/Explore)
+    - `app/(tabs)/search.tsx`
+    - `app/(tabs)/profile.tsx`
+    - `app/(modals)/...`
+- [ ] **Supabase Setup**:
+    - Initialize Supabase client in `lib/supabase.ts`
+    - Create `AuthContext` to manage session state.
+    - Implement Login and Signup forms.
+
+## Phase 2: Marketplace (Home & Search)
+Goal: Prove database READ capability.
+
+- [ ] **Database Setup**:
+    - Create `listings` table in Supabase (id, title, price, beds, facilities, image_url, etc.)
+    - Seed sample data.
+- [ ] **UI Components**:
+    - `ListingCard`: Display thumbnail, title, price.
+- [ ] **Screens**:
+    - `ExploreScreen`: Fetch and display listings.
+    - `SearchScreen`: Filter by town/beds.
+- [ ] **Map**:
+    - Integrate `MapView` to show listing pins.
+
+## Phase 3: Booking System (Core Logic)
+Goal: Prove WRITE + business logic capability.
+
+- [ ] **Listing Details**:
+    - `app/listing/[id].tsx`: Show full details.
+- [ ] **Database Setup**:
+    - Create `bookings` table (id, listing_id, user_id, start_date, end_date, status, price).
+- [ ] **Booking Logic**:
+    - Calendar component to select dates.
+    - Check availability (overlap logic).
+    - Calculate total price.
+    - Insert booking into Supabase.
+
+## Phase 4: Host Mode
+Goal: Supply-side functionality.
+
+- [ ] **Listing Wizard**:
+    - Multi-step form to add a new listing.
+- [ ] **Image Upload**:
+    - Upload images to Supabase Storage.
+- [ ] **Host Dashboard**:
+    - View my listings.
+    - View/Approve incoming bookings.
+
+## Phase 5: Wow Factors
+Goal: Hardware integration.
+
+- [ ] **Shake to Reset**:
+    - Use `expo-sensors` (Accelerometer) in Search screen to clear filters.
+- [ ] **Geofencing**:
+    - Use `expo-location` to detect when user enters a specific region.

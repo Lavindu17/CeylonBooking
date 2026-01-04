@@ -1,0 +1,331 @@
+
+# 📱 CeyloneBooking
+
+*A Localized Airbnb-Style Mobile Application for Sri Lanka*
+
+---
+
+## (Section 01) Project Overview
+
+---
+
+## 1. Project Overview
+
+**CeyloneBooking** is a native mobile application designed as a **Sri Lanka–focused alternative to Airbnb**, tailored specifically for **local hosts and domestic travelers**.
+
+### The Problem
+
+* Global platforms like Airbnb operate in **USD**, increasing costs for Sri Lankan users.
+* Limited support for **local payment habits** and regional UX expectations.
+* Overly complex interfaces for domestic travel needs.
+
+### The Solution
+
+CeyloneBooking offers:
+
+* **LKR-based pricing**
+* A **simplified booking experience**
+* **Hardware-integrated mobile features**
+* A UI designed specifically for **Sri Lankan users**
+
+---
+
+## 2. Tech Stack (Tools & Technologies)
+
+We use a **Modern Mobile Stack**, optimized for:
+
+* Rapid MVP development
+* Stability
+* High university grading potential
+
+| Layer              | Technology              | Reason                                                       |
+| ------------------ | ----------------------- | ------------------------------------------------------------ |
+| **Frontend**       | **React Native (Expo)** | Single codebase for Android & iOS with minimal configuration |
+| **Language**       | **TypeScript**          | Compile-time type safety and reduced runtime bugs            |
+| **Styling**        | **NativeWind**          | Tailwind-style utility classes for fast, consistent UI       |
+| **Backend (BaaS)** | **Supabase**            | PostgreSQL + Auth + Storage + Realtime in one platform       |
+| **Maps**           | **react-native-maps**   | Industry-standard map rendering                              |
+| **Hardware APIs**  | **Expo APIs**           | Access to sensors, GPS, haptics                              |
+
+---
+
+## 3. Key Functionalities
+
+Features are split into **Core Features** and **Advanced Features**.
+
+---
+
+### A. Core Features (Marketplace Logic)
+
+#### 1. Authentication & Profiles
+
+* Email & Password authentication
+* Secure session handling via Supabase Auth
+
+---
+
+#### 2. Marketplace Feed (Explore)
+
+* Displays **all available listings by default**
+* Filters:
+
+  * Town / area name
+  * Number of beds
+* Each listing shows:
+
+  * Thumbnail image
+  * Title
+  * Price in **LKR**
+  * Number of Beds & washrooms
+  *Facilities (Hotwater, wifi, ac, parking, swiming pool)
+* Data fetched in **real-time** from Supabase
+
+---
+
+#### 3. Booking System
+
+**Guest Side**
+
+* View available & booked dates on a calendar
+* Cannot:
+
+  * Select already booked dates
+  * Select overlapping date ranges
+    **Example:**
+    If Dec 22 is booked → booking Dec 20–23 is blocked
+* Total price calculation:
+
+```
+Total = Price per Night × Number of Nights
+```
+
+* Booking stored with status: `pending`
+* Email notification sent after confirmation
+
+**Host Side**
+
+* Create and manage listings
+* Block calendar dates manually
+* Approve or reject bookings
+
+---
+
+### B. Advanced Hardware Features (Differentiators)
+
+---
+
+#### 1. Shake to Reset (Accelerometer)
+
+**Function**
+
+* While filtering search results, users can **shake the phone** to clear all filters.
+
+**Behavior**
+
+* Detects shake via accelerometer
+* Clears filters
+* Triggers haptic feedback
+* Shows confirmation notification
+
+**Tech**
+
+* `expo-sensors`
+* G-force threshold: `> 1.78`
+
+---
+
+#### 2. Geofencing Alerts (Location)
+
+**Function**
+
+* When a guest enters the town of their booking:
+
+> “Welcome to Ella! Tap for directions.”
+
+**Tech**
+
+* `expo-location`
+* Background location monitoring
+* Local push notifications
+
+---
+
+## 4. Application Architecture
+
+---
+
+### 1. UI Layer (Mobile App)
+
+* React Native screens
+* Native components (Buttons, Lists, Maps)
+
+---
+
+### 2. Network Layer
+
+* Secure API calls to **Supabase**
+* REST + Realtime subscriptions
+
+---
+
+### 3. Backend (Supabase)
+
+**Supabase Responsibilities**
+
+* **PostgreSQL Database**
+
+  * Users
+  * Listings
+  * Bookings
+* **Authentication**
+
+  * Email / Password
+  * Google OAuth
+* **Storage Buckets**
+
+  * Listing images (JPG / PNG)
+* **Realtime**
+
+  * Live booking & availability updates
+
+---
+
+---
+
+# (Section 02) User Interface & Experience Guidance
+
+> **Apple Human Interface Guidelines–inspired design**, optimized for grading, usability, and native feel.
+
+---
+
+# 🍎 CeyloneBooking — UI & UX Design Specification
+
+*(This section remains UI-focused and is backend-agnostic; no Appwrite references required.)*
+
+✔ Typography
+✔ Color system
+✔ Screen-by-screen layout
+✔ Host listing creation wizard
+
+> **No changes needed here** — UI is independent of backend choice
+> (Your existing Apple-grade UI spec is **perfect for Supabase as well**)
+
+---
+
+---
+
+# (Section 03) Development Roadmap
+
+---
+
+## 🏁 Phase 0 — Foundation
+
+**Goal:** Stable, error-free development environment.
+
+✔ Initialize Expo project with TypeScript
+✔ Install dependencies (NativeWind, Maps, Supabase)
+✔ Resolve React 19 conflicts
+✔ Create:
+
+* `babel.config.js`
+* `app/_layout.tsx`
+  ✔ Add fonts & assets
+
+---
+
+## 🚀 Phase 1 — Navigation & Authentication
+
+**Goal:** Secure user access and session persistence.
+
+* Expo Router:
+
+  * Auth Stack (Login)
+  * Tab Navigation (Home, Search, Profile)
+* Supabase Auth:
+
+  * Email & Password
+  * Google OAuth
+* Auth Context:
+
+  * Persist login state
+* UI polish per Sri Lanka Landscape spec
+
+---
+
+## 🏠 Phase 2 — Marketplace (Home & Search)
+
+**Goal:** Prove database **READ** capability.
+
+* Supabase Tables:
+
+  * `listings`
+* Seed 5–10 sample Sri Lankan properties
+* Build `ListingCard` component
+* Implement:
+
+  * Town-based search
+  * Beds filter
+* Map view with listing pins
+
+---
+
+## 🏨 Phase 3 — Booking System (Core Logic)
+
+**Goal:** Prove **WRITE + business logic** capability.
+
+* Dynamic listing page: `listing/[id]`
+* Supabase Table:
+
+  * `bookings`
+* Calendar logic:
+
+  * Disable booked dates
+  * Prevent overlapping ranges
+* Price calculation
+* Save booking with `pending` status
+
+---
+
+## 🛌 Phase 4 — Host Mode
+
+**Goal:** Supply-side functionality.
+
+* 7-step Apple-style listing creation wizard
+* Supabase Storage:
+
+  * Image uploads
+* Host dashboard:
+
+  * My Listings
+  * Booking requests
+
+---
+
+## ✨ Phase 5 — Wow Factors (Hardware)
+
+**Goal:** Secure top marks.
+
+* Shake-to-Reset using accelerometer
+* Geofencing notifications using GPS
+* Background tasks + local notifications
+
+---
+
+## ✅ Why This Project Scores High
+
+* Real-world architecture (Supabase + PostgreSQL)
+* Apple-aligned UX
+* Strong separation of concerns
+* Hardware integration
+* Clear scalability path
+
+---
+
+If you want next:
+
+* 📊 **Supabase database schema (tables & columns)**
+* 🔐 **Supabase Auth + Row Level Security rules**
+* 🧠 **Exact booking overlap SQL logic**
+* 📦 **Supabase Storage folder strategy**
+
+Just tell me what to build next.
