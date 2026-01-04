@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/Button';
 import { Body, BodyBold, Caption1 } from '@/components/ui/Typography';
-import { BorderRadius, BrandColors, formatCurrency, SemanticColors, Spacing } from '@/constants/Design';
+import { BorderRadius, BrandColors, formatCurrency, SemanticColors, Shadows, Spacing } from '@/constants/Design';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BookingWithDetails } from '@/types/booking';
 import { Ionicons } from '@expo/vector-icons';
@@ -93,42 +93,50 @@ export function HostBookingCard({ booking, onUpdateStatus }: Props) {
     const isPending = booking.status === 'pending';
 
     return (
-        <View style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <View style={[
+            styles.card,
+            { backgroundColor: colors.background },
+            Shadows.small
+        ]}>
             {/* Guest Info */}
-            <View style={styles.row}>
-                <Ionicons name="person" size={16} color={colors.textSecondary} />
-                <Caption1 style={{ color: colors.textSecondary, marginLeft: 4 }}>
-                    Guest: {booking.guest_email || 'Unknown'}
+            <View style={[styles.guestRow, { backgroundColor: colors.backgroundSecondary }]}>
+                <Ionicons name="person-circle" size={20} color={BrandColors.ceylonGreen} />
+                <Caption1 style={{ color: colors.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
+                    {booking.guest_email || 'Unknown Guest'}
                 </Caption1>
             </View>
 
             {/* Listing Name */}
-            <BodyBold style={{ fontSize: 16, marginTop: Spacing.xs, marginBottom: Spacing.xs }}>
+            <BodyBold style={{ fontSize: 17, marginTop: Spacing.m, marginBottom: Spacing.xs }}>
                 {booking.listing.title}
             </BodyBold>
 
             {/* Dates */}
-            <View style={styles.row}>
-                <Ionicons name="calendar" size={16} color={colors.textPrimary} />
-                <Body style={{ marginLeft: Spacing.xs }}>
-                    {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
-                </Body>
+            <View style={styles.dateRow}>
+                <Ionicons name="calendar-outline" size={18} color={BrandColors.ceylonGreen} />
+                <View style={{ marginLeft: Spacing.s, flex: 1 }}>
+                    <Body style={{ fontSize: 15 }}>
+                        {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
+                    </Body>
+                    <Caption1 style={{ color: colors.textSecondary, marginTop: 2 }}>
+                        {calculateNights()} {calculateNights() === 1 ? 'night' : 'nights'}
+                    </Caption1>
+                </View>
             </View>
 
-            <Caption1 style={{ color: colors.textSecondary, marginLeft: 24 }}>
-                {calculateNights()} {calculateNights() === 1 ? 'night' : 'nights'}
-            </Caption1>
+            {/* Divider */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             {/* Status and Price */}
-            <View style={[styles.footer, { marginTop: Spacing.m }]}>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '20' }]}>
-                    <Ionicons name={getStatusIcon()} size={14} color={getStatusColor()} />
-                    <Caption1 style={{ color: getStatusColor(), marginLeft: 4, fontWeight: '600' }}>
+            <View style={styles.footer}>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '15', borderColor: getStatusColor() + '30' }]}>
+                    <Ionicons name={getStatusIcon()} size={16} color={getStatusColor()} />
+                    <Caption1 style={{ color: getStatusColor(), marginLeft: 6, fontWeight: '600' }}>
                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </Caption1>
                 </View>
 
-                <BodyBold style={{ color: BrandColors.ceylonGreen }}>
+                <BodyBold style={{ color: BrandColors.ceylonGreen, fontSize: 18 }}>
                     {formatCurrency(booking.total_price)}
                 </BodyBold>
             </View>
@@ -158,14 +166,25 @@ export function HostBookingCard({ booking, onUpdateStatus }: Props) {
 
 const styles = StyleSheet.create({
     card: {
-        padding: Spacing.m,
+        padding: Spacing.l,
         borderRadius: BorderRadius.card,
-        borderWidth: 1,
         marginBottom: Spacing.m,
     },
-    row: {
+    guestRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: Spacing.m,
+        paddingVertical: Spacing.s,
+        borderRadius: BorderRadius.small,
+    },
+    dateRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: Spacing.s,
+    },
+    divider: {
+        height: 1,
+        marginVertical: Spacing.m,
     },
     footer: {
         flexDirection: 'row',
@@ -175,15 +194,16 @@ const styles = StyleSheet.create({
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Spacing.s,
-        paddingVertical: 4,
+        paddingHorizontal: Spacing.m,
+        paddingVertical: 6,
         borderRadius: BorderRadius.small,
+        borderWidth: 1,
     },
     actions: {
         flexDirection: 'row',
-        marginTop: Spacing.m,
+        marginTop: Spacing.l,
         paddingTop: Spacing.m,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.1)',
+        borderTopColor: 'rgba(0,0,0,0.06)',
     },
 });

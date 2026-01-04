@@ -1,5 +1,5 @@
 import { Body, BodyBold, Caption1 } from '@/components/ui/Typography';
-import { BorderRadius, BrandColors, formatCurrency, SemanticColors, Spacing } from '@/constants/Design';
+import { BorderRadius, BrandColors, formatCurrency, SemanticColors, Shadows, Spacing } from '@/constants/Design';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BookingWithListing } from '@/types/booking';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +21,7 @@ export function BookingCard({ booking }: Props) {
                 return '#ef4444'; // red
             case 'pending':
             default:
-                return '#f59e0b'; // yellow
+                return '#f59e0b'; // yellow/amber
         }
     };
 
@@ -50,42 +50,52 @@ export function BookingCard({ booking }: Props) {
     };
 
     return (
-        <View style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <View style={[
+            styles.card,
+            { backgroundColor: colors.background },
+            Shadows.small
+        ]}>
             {/* Listing Name */}
-            <BodyBold style={{ fontSize: 16, marginBottom: Spacing.xs }}>
+            <BodyBold style={{ fontSize: 17, marginBottom: Spacing.xs }}>
                 {booking.listing.title}
             </BodyBold>
 
             {/* Location */}
             <View style={styles.row}>
-                <Ionicons name="location" size={14} color={colors.textSecondary} />
+                <Ionicons name="location" size={15} color={colors.textSecondary} />
                 <Caption1 style={{ color: colors.textSecondary, marginLeft: 4 }}>
                     {booking.listing.location}
                 </Caption1>
             </View>
 
             {/* Dates */}
-            <View style={[styles.row, { marginTop: Spacing.s }]}>
-                <Ionicons name="calendar" size={16} color={colors.textPrimary} />
-                <Body style={{ marginLeft: Spacing.xs }}>
-                    {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
-                </Body>
+            <View style={[styles.dateSection, { marginTop: Spacing.m }]}>
+                <View style={styles.dateRow}>
+                    <Ionicons name="calendar-outline" size={18} color={BrandColors.ceylonGreen} />
+                    <View style={{ marginLeft: Spacing.s, flex: 1 }}>
+                        <Body style={{ fontSize: 15 }}>
+                            {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
+                        </Body>
+                        <Caption1 style={{ color: colors.textSecondary, marginTop: 2 }}>
+                            {calculateNights()} {calculateNights() === 1 ? 'night' : 'nights'}
+                        </Caption1>
+                    </View>
+                </View>
             </View>
 
-            <Caption1 style={{ color: colors.textSecondary, marginLeft: 24 }}>
-                {calculateNights()} {calculateNights() === 1 ? 'night' : 'nights'}
-            </Caption1>
+            {/* Divider */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
             {/* Status and Price */}
-            <View style={[styles.footer, { marginTop: Spacing.m }]}>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '20' }]}>
-                    <Ionicons name={getStatusIcon()} size={14} color={getStatusColor()} />
-                    <Caption1 style={{ color: getStatusColor(), marginLeft: 4, fontWeight: '600' }}>
+            <View style={styles.footer}>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '15', borderColor: getStatusColor() + '30' }]}>
+                    <Ionicons name={getStatusIcon()} size={16} color={getStatusColor()} />
+                    <Caption1 style={{ color: getStatusColor(), marginLeft: 6, fontWeight: '600' }}>
                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </Caption1>
                 </View>
 
-                <BodyBold style={{ color: BrandColors.ceylonGreen }}>
+                <BodyBold style={{ color: BrandColors.ceylonGreen, fontSize: 18 }}>
                     {formatCurrency(booking.total_price)}
                 </BodyBold>
             </View>
@@ -95,14 +105,24 @@ export function BookingCard({ booking }: Props) {
 
 const styles = StyleSheet.create({
     card: {
-        padding: Spacing.m,
+        padding: Spacing.l,
         borderRadius: BorderRadius.card,
-        borderWidth: 1,
         marginBottom: Spacing.m,
     },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    dateSection: {
+        paddingVertical: Spacing.xs,
+    },
+    dateRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    divider: {
+        height: 1,
+        marginVertical: Spacing.m,
     },
     footer: {
         flexDirection: 'row',
@@ -112,8 +132,9 @@ const styles = StyleSheet.create({
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Spacing.s,
-        paddingVertical: 4,
+        paddingHorizontal: Spacing.m,
+        paddingVertical: 6,
         borderRadius: BorderRadius.small,
+        borderWidth: 1,
     },
 });

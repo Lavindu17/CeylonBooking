@@ -1,14 +1,16 @@
 import { BookingCard } from '@/components/BookingCard';
 import { HostBookingCard } from '@/components/HostBookingCard';
 import { Button } from '@/components/ui/Button';
+import { TabBar } from '@/components/ui/TabBar';
 import { Body, Headline, Title2 } from '@/components/ui/Typography';
-import { BorderRadius, SemanticColors, Spacing } from '@/constants/Design';
+import { BorderRadius, BrandColors, SemanticColors, Spacing } from '@/constants/Design';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHostBookings } from '@/hooks/useHostBookings';
 import { useUserBookings } from '@/hooks/useUserBookings';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { useState } from 'react';
+import { Image, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
@@ -17,18 +19,138 @@ export default function ProfileScreen() {
     const colorScheme = useColorScheme();
     const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
 
+    // Tab state
+    const [activeTab, setActiveTab] = useState('trips');
+
     // Fetch user bookings
-    const { bookings: userBookings, loading: userBookingsLoading } = useUserBookings();
+    const { bookings: userBookings, loading: userBookingsLoading, refetch: refetchUserBookings } = useUserBookings();
 
     // Fetch host bookings (bookings for listings owned by this user)
-    const { bookings: hostBookings, loading: hostBookingsLoading, updateBookingStatus } = useHostBookings();
+    const { bookings: hostBookings, loading: hostBookingsLoading, updateBookingStatus, refetch: refetchHostBookings } = useHostBookings();
+
+    const [refreshing, setRefreshing] = useState(false);
 
     const pendingHostBookingsCount = hostBookings.filter(b => b.status === 'pending').length;
+
+    // Tabs configuration
+    const tabs = [
+        { key: 'trips', label: 'My Trips' },
+        { key: 'requests', label: 'Requests', badge: pendingHostBookingsCount },
+        { key: 'listings', label: 'Listings' },
+    ];
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        if (activeTab === 'trips') {
+            await refetchUserBookings();
+        } else if (activeTab === 'requests') {
+            await refetchHostBookings();
+        }
+        setRefreshing(false);
+    };
+
+    const renderEmptyState = (icon: string, primary: string, secondary?: string) => (
+        <View style={[styles.emptyCard, { backgroundColor: colors.background }]}>
+            <Ionicons name={icon as any} size={48} color={colors.textDisabled} />
+            <Body style={{ color: colors.textSecondary, textAlign: 'center', marginTop: Spacing.m }}>
+                {primary}
+            </Body>
+            {secondary && (
+                <Body style={{ color: colors.textTertiary, textAlign: 'center', fontSize: 13, marginTop: Spacing.xs }}>
+                    {secondary}
+                </Body>
+            )}
+        </View>
+    );
+
+    const renderTripsTab = () => (
+        <ScrollView
+            contentContainerStyle={styles.tabContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BrandColors.ceylonGreen} />
+            }
+        >
+            <Headline style={styles.tabTitle}>My Bookings</Headline>
+
+            {userBookingsLoading ? (
+                renderEmptyState('time-outline', 'Loading...')
+            ) : userBookings.length === 0 ? (
+                renderEmptyState('calendar-outline', 'No bookings yet', 'Start exploring amazing stays!')
+            ) : (
+                <View>
+                    {userBookings.map(booking => (
+                        <BookingCard key={booking.id} booking={booking} />
+                    ))}
+                </View>
+            )}
+        </ScrollView>
+    );
+
+    const renderRequestsTab = () => (
+        <ScrollView
+            contentContainerStyle={styles.tabContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BrandColors.ceylonGreen} />
+            }
+        >
+            <Headline style={styles.tabTitle}>Booking Requests</Headline>
+
+            {hostBookingsLoading ? (
+                renderEmptyState('time-outline', 'Loading...')
+            ) : hostBookings.length === 0 ? (
+                renderEmptyState('business-outline', 'No booking requests', 'Create a listing to start hosting!')
+            ) : (
+                <View>
+                    {hostBookings.map(booking => (
+                        <HostBookingCard
+                            key={booking.id}
+                            booking={booking}
+                            onUpdateStatus={updateBookingStatus}
+                        />
+                    ))}
+                </View>
+            )}
+        </ScrollView>
+    );
+
+    const renderListingsTab = () => (
+        <ScrollView
+            contentContainerStyle={styles.tabContent}
+            showsVerticalScrollIndicator={false}
+        >
+            <Headline style={styles.tabTitle}>My Listings</Headline>
+
+            <TouchableOpacity
+                style={[styles.tile, { backgroundColor: colors.background }]}
+                onPress={() => router.push('/host/create-listing')}
+            >
+                <View style={styles.tileContent}>
+                    <Ionicons name="add-circle" size={24} color={BrandColors.ceylonGreen} />
+                    <Body>Create New Listing</Body>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            {/* Log Out Button */}
+            <Button
+                title="Log Out"
+                variant="destructive"
+                onPress={signOut}
+                fullWidth
+            />
+        </ScrollView>
+    );
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]} edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
 
+            {/* Header */}
             <View style={[styles.header, { backgroundColor: colors.background }]}>
                 <Image
                     source={{ uri: 'https://i.pravatar.cc/150?u=' + user?.email }}
@@ -38,90 +160,15 @@ export default function ProfileScreen() {
                 <Body style={{ color: colors.textSecondary }}>{user?.email}</Body>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            {/* Tab Bar */}
+            <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-                {/* My Bookings */}
-                <View style={styles.sectionHeader}>
-                    <Headline>My Bookings</Headline>
-                </View>
-
-                {userBookingsLoading ? (
-                    <View style={[styles.card, { backgroundColor: colors.backgroundSecondary }]}>
-                        <ActivityIndicator size="small" color={colors.tint} />
-                    </View>
-                ) : userBookings.length === 0 ? (
-                    <View style={[styles.card, { backgroundColor: colors.backgroundSecondary }]}>
-                        <Body style={{ color: colors.textSecondary, textAlign: 'center', padding: Spacing.m }}>
-                            No bookings yet. Start exploring!
-                        </Body>
-                    </View>
-                ) : (
-                    <View>
-                        {userBookings.map(booking => (
-                            <BookingCard key={booking.id} booking={booking} />
-                        ))}
-                    </View>
-                )}
-
-                {/* Booking Requests (Host Section) */}
-                {hostBookings.length > 0 && (
-                    <>
-                        <View style={[styles.sectionHeader, { marginTop: Spacing.xl }]}>
-                            <View style={styles.sectionTitleRow}>
-                                <Headline>Booking Requests</Headline>
-                                {pendingHostBookingsCount > 0 && (
-                                    <View style={[styles.badge, { backgroundColor: colors.tint }]}>
-                                        <Body style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-                                            {pendingHostBookingsCount}
-                                        </Body>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-
-                        {hostBookingsLoading ? (
-                            <View style={[styles.card, { backgroundColor: colors.backgroundSecondary }]}>
-                                <ActivityIndicator size="small" color={colors.tint} />
-                            </View>
-                        ) : (
-                            <View>
-                                {hostBookings.map(booking => (
-                                    <HostBookingCard
-                                        key={booking.id}
-                                        booking={booking}
-                                        onUpdateStatus={updateBookingStatus}
-                                    />
-                                ))}
-                            </View>
-                        )}
-                    </>
-                )}
-
-                {/* My Listings */}
-                <View style={[styles.sectionHeader, { marginTop: Spacing.xl }]}>
-                    <Headline>My Listings</Headline>
-                </View>
-
-                <TouchableOpacity
-                    style={[styles.tile, { backgroundColor: colors.background }]}
-                    onPress={() => router.push('/host/create-listing')}
-                >
-                    <View style={styles.tileContent}>
-                        <Ionicons name="add-circle" size={24} color={colors.tint} />
-                        <Body>Create New Listing</Body>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                </TouchableOpacity>
-
-                <View style={{ marginTop: Spacing.xxl }}>
-                    <Button
-                        title="Log Out"
-                        variant="destructive"
-                        onPress={signOut}
-                        fullWidth
-                    />
-                </View>
-            </ScrollView>
+            {/* Tab Content */}
+            <View style={styles.tabContainer}>
+                {activeTab === 'trips' && renderTripsTab()}
+                {activeTab === 'requests' && renderRequestsTab()}
+                {activeTab === 'listings' && renderListingsTab()}
+            </View>
         </SafeAreaView>
     );
 }
@@ -133,7 +180,6 @@ const styles = StyleSheet.create({
     header: {
         alignItems: 'center',
         paddingVertical: Spacing.xl,
-        marginBottom: Spacing.m,
     },
     avatar: {
         width: 80,
@@ -141,42 +187,38 @@ const styles = StyleSheet.create({
         borderRadius: 40,
         marginBottom: Spacing.s,
     },
-    content: {
+    tabContainer: {
+        flex: 1,
+    },
+    tabContent: {
         padding: Spacing.m,
+        paddingBottom: Spacing.xxl,
     },
-    sectionHeader: {
-        marginBottom: Spacing.s,
+    tabTitle: {
+        marginBottom: Spacing.m,
     },
-    sectionTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.s,
-    },
-    badge: {
-        paddingHorizontal: Spacing.s,
-        paddingVertical: 2,
-        borderRadius: 12,
-        minWidth: 24,
-        height: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    card: {
-        padding: Spacing.m,
+    emptyCard: {
+        padding: Spacing.xl,
         borderRadius: BorderRadius.card,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 200,
     },
     tile: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: Spacing.m,
+        padding: Spacing.l,
         borderRadius: BorderRadius.card,
-        marginBottom: Spacing.s,
+        marginBottom: Spacing.m,
     },
     tileContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.s,
+        gap: Spacing.m,
+    },
+    divider: {
+        height: 1,
+        marginVertical: Spacing.l,
     },
 });
-
