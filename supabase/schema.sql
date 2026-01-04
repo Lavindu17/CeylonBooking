@@ -2,6 +2,7 @@
 create table public.listings (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  host_id uuid references auth.users(id) not null,
   title text not null,
   description text,
   price numeric not null,
@@ -23,10 +24,25 @@ create table public.listings (
 -- Enable Row Level Security (RLS)
 alter table public.listings enable row level security;
 
--- Policy: efficient read access for everyone
+-- Policy: Everyone can read all listings
 create policy "Enable read access for all users"
   on public.listings for select
   using (true);
+
+-- Policy: Users can insert their own listings
+create policy "Users can create listings"
+  on public.listings for insert
+  with check (auth.uid() = host_id);
+
+-- Policy: Users can update their own listings
+create policy "Users can update own listings"
+  on public.listings for update
+  using (auth.uid() = host_id);
+
+-- Policy: Users can delete their own listings
+create policy "Users can delete own listings"
+  on public.listings for delete
+  using (auth.uid() = host_id);
 
 -- Seed Data (Sri Lanka Locations)
 insert into public.listings (title, description, price, beds, baths, image_url, location, facilities, google_maps_url, latitude, longitude)
