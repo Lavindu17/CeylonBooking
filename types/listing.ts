@@ -1,6 +1,7 @@
 export interface Listing {
     id: string;
     created_at: string;
+    host_id: string;
     title: string;
     description: string | null;
     price: number;
@@ -12,4 +13,12 @@ export interface Listing {
     google_maps_url: string | null;
     latitude: number | null;
     longitude: number | null;
+    host?: {
+        id: string;
+        email: string;
+        raw_user_meta_data?: {
+            display_name?: string;
+            avatar_url?: string;
+        };
+    };
 }

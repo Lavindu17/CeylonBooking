@@ -34,14 +34,44 @@ export default function ListingDetails() {
     }, [id]);
 
     async function fetchListing() {
-        const { data, error } = await supabase
+        // Fetch listing data
+        const { data: listingData, error: listingError } = await supabase
             .from('listings')
             .select('*')
             .eq('id', id)
             .single();
 
-        if (error) console.error(error);
-        else setListing(data);
+        if (listingError) {
+            console.error(listingError);
+            return;
+        }
+
+        // Fetch host data using RPC function
+        const { data: hostData, error: hostError } = await supabase
+            .rpc('get_user_public_info', { user_id: listingData.host_id })
+            .single();
+
+        if (hostError) {
+            console.error('Host data error:', hostError);
+            // Set listing without host data
+            setListing(listingData);
+        } else if (hostData) {
+            // Combine listing with host data
+            setListing({
+                ...listingData,
+                host: {
+                    id: (hostData as any).id,
+                    email: (hostData as any).email,
+                    raw_user_meta_data: {
+                        display_name: (hostData as any).display_name,
+                        avatar_url: (hostData as any).avatar_url
+                    }
+                }
+            });
+        } else {
+            // No host data found
+            setListing(listingData);
+        }
     }
 
     if (!listing) return (
@@ -87,15 +117,9 @@ export default function ListingDetails() {
                         {listing.location}
                     </Body>
 
-                    <View style={styles.stats}>
-                        <Caption1 style={{ color: colors.textSecondary }}>
-                            {listing.beds} Beds · {listing.baths || 1} Bath
-                        </Caption1>
-                        <View style={styles.rating}>
-                            <Ionicons name="star" size={14} color={BrandColors.ceylonGreen} />
-                            <Caption1 style={{ fontWeight: '600' }}>4.8 (120)</Caption1>
-                        </View>
-                    </View>
+                    <Caption1 style={{ color: colors.textSecondary }}>
+                        {listing.beds} Beds · {listing.baths || 1} Bath
+                    </Caption1>
 
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -103,12 +127,19 @@ export default function ListingDetails() {
                     <View style={styles.hostSection}>
                         <View style={styles.hostInfo}>
                             <Image
-                                source={{ uri: 'https://i.pravatar.cc/150?u=host' }}
+                                source={{
+                                    uri: listing.host?.raw_user_meta_data?.avatar_url
+                                        || `https://i.pravatar.cc/150?u=${listing.host?.email}`
+                                }}
                                 style={styles.avatar}
                             />
                             <View>
-                                <Headline>Hosted by Sarah</Headline>
-                                <Caption1 style={{ color: colors.textSecondary }}>Superhost</Caption1>
+                                <Headline>
+                                    Hosted by {listing.host?.raw_user_meta_data?.display_name
+                                        || listing.host?.email?.split('@')[0]
+                                        || 'Host'}
+                                </Headline>
+                                <Caption1 style={{ color: colors.textSecondary }}>{listing.host?.email}</Caption1>
                             </View>
                         </View>
                         <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}>
@@ -221,17 +252,6 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: Spacing.l,
-    },
-    stats: {
-        flexDirection: 'row',
-        gap: Spacing.m,
-        marginTop: Spacing.s,
-        alignItems: 'center',
-    },
-    rating: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
     },
     divider: {
         height: 1,

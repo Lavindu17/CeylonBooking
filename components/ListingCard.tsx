@@ -1,7 +1,6 @@
 import { BorderRadius, Layout, SemanticColors, Spacing, formatPricePerNight } from '@/constants/Design';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Listing } from '@/types/listing';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { BodyBold, Caption1, Headline } from './ui/Typography';
@@ -27,13 +26,7 @@ export function ListingCard({ listing }: Props) {
             />
 
             <View style={styles.content}>
-                <View style={styles.header}>
-                    <Headline numberOfLines={1} style={{ flex: 1 }}>{listing.title}</Headline>
-                    <View style={styles.rating}>
-                        <Ionicons name="star" size={12} color={colors.textPrimary} />
-                        <Caption1>4.8</Caption1>
-                    </View>
-                </View>
+                <Headline numberOfLines={1}>{listing.title}</Headline>
 
                 <Caption1 style={{ color: colors.textSecondary }}>
                     {listing.beds} beds · {listing.baths || 1} baths
@@ -59,17 +52,6 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.s,
     },
     content: {
-        gap: 2,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: Spacing.xs,
-    },
-    rating: {
-        flexDirection: 'row',
-        alignItems: 'center',
         gap: 2,
     },
     priceContainer: {
