@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Props = {
     visible: boolean;
@@ -21,6 +22,8 @@ export function SettingsModal({ visible, onClose }: Props) {
     const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name || user?.email?.split('@')[0] || '');
     const [email, setEmail] = useState(user?.email || '');
     const [loading, setLoading] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || null);
 
     const handleUpdateProfile = async () => {
         if (!displayName.trim()) {
@@ -83,6 +86,78 @@ export function SettingsModal({ visible, onClose }: Props) {
         );
     };
 
+    const handleUploadAvatar = async () => {
+        try {
+            // Request permissions
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'We need camera roll permissions to upload your profile picture.');
+                return;
+            }
+
+            // Launch image picker
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (result.canceled) {
+                return;
+            }
+
+            setUploadingAvatar(true);
+
+            const photo = result.assets[0];
+
+            // Convert image to base64
+            const response = await fetch(photo.uri);
+            const blob = await response.blob();
+            const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as ArrayBuffer);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(blob);
+            });
+
+            const fileExt = photo.uri.split('.').pop()?.toLowerCase() || 'jpg';
+            const filePath = `${user!.id}/avatar.${fileExt}`;
+
+            // Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, arrayBuffer, {
+                    contentType: `image/${fileExt}`,
+                    upsert: true, // Replace existing file
+                });
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+
+            const publicUrl = urlData.publicUrl;
+
+            // Update user metadata with avatar URL
+            const { error: updateError } = await supabase.auth.updateUser({
+                data: { avatar_url: publicUrl },
+            });
+
+            if (updateError) throw updateError;
+
+            setAvatarUrl(publicUrl);
+            Alert.alert('Success', 'Profile picture updated successfully!');
+        } catch (error) {
+            console.error('Avatar upload error:', error);
+            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to upload profile picture');
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
     const handleLogout = () => {
         Alert.alert('Log Out', 'Are you sure you want to log out?', [
             { text: 'Cancel', style: 'cancel' },
@@ -116,6 +191,37 @@ export function SettingsModal({ visible, onClose }: Props) {
                     </View>
 
                     <View style={styles.content}>
+                        {/* Profile Picture */}
+                        <View style={styles.section}>
+                            <BodyBold style={{ marginBottom: Spacing.m }}>Profile Picture</BodyBold>
+                            <View style={styles.avatarContainer}>
+                                <View style={styles.avatarWrapper}>
+                                    <Image
+                                        source={{
+                                            uri: avatarUrl || `https://i.pravatar.cc/150?u=${user?.email}`
+                                        }}
+                                        style={styles.avatar}
+                                    />
+                                    {uploadingAvatar && (
+                                        <View style={styles.avatarLoading}>
+                                            <ActivityIndicator size="large" color="#fff" />
+                                        </View>
+                                    )}
+                                </View>
+                                <Button
+                                    title={uploadingAvatar ? "Uploading..." : "Change Picture"}
+                                    onPress={handleUploadAvatar}
+                                    disabled={uploadingAvatar}
+                                    loading={uploadingAvatar}
+                                    size="small"
+                                    variant="secondary"
+                                />
+                            </View>
+                        </View>
+
+                        {/* Divider */}
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
                         {/* Display Name */}
                         <View style={styles.section}>
                             <BodyBold style={{ marginBottom: Spacing.s }}>Display Name</BodyBold>
@@ -244,5 +350,30 @@ const styles = StyleSheet.create({
     divider: {
         height: 1,
         marginVertical: Spacing.l,
+    },
+    avatarContainer: {
+        alignItems: 'center',
+        gap: Spacing.m,
+    },
+    avatarWrapper: {
+        position: 'relative',
+        width: 120,
+        height: 120,
+    },
+    avatar: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+    },
+    avatarLoading: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

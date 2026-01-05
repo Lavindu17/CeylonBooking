@@ -190,7 +190,7 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
 
                 <Image
-                    source={{ uri: 'https://i.pravatar.cc/150?u=' + user?.email }}
+                    source={{ uri: user?.user_metadata?.avatar_url || 'https://i.pravatar.cc/150?u=' + user?.email }}
                     style={styles.avatar}
                 />
                 <Title2 style={{ marginTop: Spacing.m }}>
