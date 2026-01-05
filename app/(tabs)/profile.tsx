@@ -1,5 +1,6 @@
 import { BookingCard } from '@/components/BookingCard';
 import { HostBookingCard } from '@/components/HostBookingCard';
+import { MyListingCard } from '@/components/MyListingCard';
 import { Button } from '@/components/ui/Button';
 import { TabBar } from '@/components/ui/TabBar';
 import { Body, Headline, Title2 } from '@/components/ui/Typography';
@@ -7,10 +8,11 @@ import { BorderRadius, BrandColors, SemanticColors, Spacing } from '@/constants/
 import { useAuth } from '@/contexts/AuthContext';
 import { useHostBookings } from '@/hooks/useHostBookings';
 import { useUserBookings } from '@/hooks/useUserBookings';
+import { useUserListings } from '@/hooks/useUserListings';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { Alert, Image, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
@@ -27,6 +29,9 @@ export default function ProfileScreen() {
 
     // Fetch host bookings (bookings for listings owned by this user)
     const { bookings: hostBookings, loading: hostBookingsLoading, updateBookingStatus, refetch: refetchHostBookings } = useHostBookings();
+
+    // Fetch user's listings
+    const { listings: userListings, loading: userListingsLoading, refetch: refetchUserListings, deleteListing } = useUserListings();
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -45,6 +50,8 @@ export default function ProfileScreen() {
             await refetchUserBookings();
         } else if (activeTab === 'requests') {
             await refetchHostBookings();
+        } else if (activeTab === 'listings') {
+            await refetchUserListings();
         }
         setRefreshing(false);
     };
@@ -115,36 +122,67 @@ export default function ProfileScreen() {
         </ScrollView>
     );
 
-    const renderListingsTab = () => (
-        <ScrollView
-            contentContainerStyle={styles.tabContent}
-            showsVerticalScrollIndicator={false}
-        >
-            <Headline style={styles.tabTitle}>My Listings</Headline>
+    const renderListingsTab = () => {
+        const handleDeleteListing = async (listingId: string) => {
+            const result = await deleteListing(listingId);
+            if (result.success) {
+                Alert.alert('Success', 'Listing deleted successfully');
+            } else {
+                Alert.alert('Error', result.error || 'Failed to delete listing');
+            }
+        };
 
-            <TouchableOpacity
-                style={[styles.tile, { backgroundColor: colors.background }]}
-                onPress={() => router.push('/host/create-listing')}
+        return (
+            <ScrollView
+                contentContainerStyle={styles.tabContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BrandColors.ceylonGreen} />
+                }
             >
-                <View style={styles.tileContent}>
-                    <Ionicons name="add-circle" size={24} color={BrandColors.ceylonGreen} />
-                    <Body>Create New Listing</Body>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-            </TouchableOpacity>
+                <Headline style={styles.tabTitle}>My Listings</Headline>
 
-            {/* Divider */}
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <TouchableOpacity
+                    style={[styles.tile, { backgroundColor: colors.background }]}
+                    onPress={() => router.push('/host/create-listing')}
+                >
+                    <View style={styles.tileContent}>
+                        <Ionicons name="add-circle" size={24} color={BrandColors.ceylonGreen} />
+                        <Body>Create New List</Body>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                </TouchableOpacity>
 
-            {/* Log Out Button */}
-            <Button
-                title="Log Out"
-                variant="destructive"
-                onPress={signOut}
-                fullWidth
-            />
-        </ScrollView>
-    );
+                {/* User's Listings */}
+                {userListingsLoading ? (
+                    renderEmptyState('time-outline', 'Loading...')
+                ) : userListings.length === 0 ? (
+                    renderEmptyState('home-outline', 'No listings yet', 'Create your first listing to start hosting!')
+                ) : (
+                    <View style={{ marginTop: Spacing.m }}>
+                        {userListings.map(listing => (
+                            <MyListingCard
+                                key={listing.id}
+                                listing={listing}
+                                onDelete={handleDeleteListing}
+                            />
+                        ))}
+                    </View>
+                )}
+
+                {/* Divider */}
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                {/* Log Out Button */}
+                <Button
+                    title="Log Out"
+                    variant="destructive"
+                    onPress={signOut}
+                    fullWidth
+                />
+            </ScrollView>
+        );
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundSecondary }]} edges={['top']}>
