@@ -1,7 +1,7 @@
 import { BookingCard } from '@/components/BookingCard';
 import { HostBookingCard } from '@/components/HostBookingCard';
 import { MyListingCard } from '@/components/MyListingCard';
-import { Button } from '@/components/ui/Button';
+import { SettingsModal } from '@/components/SettingsModal';
 import { TabBar } from '@/components/ui/TabBar';
 import { Body, Headline, Title2 } from '@/components/ui/Typography';
 import { BorderRadius, BrandColors, SemanticColors, Spacing } from '@/constants/Design';
@@ -23,6 +23,9 @@ export default function ProfileScreen() {
 
     // Tab state
     const [activeTab, setActiveTab] = useState('trips');
+
+    // Settings modal state
+    const [settingsVisible, setSettingsVisible] = useState(false);
 
     // Fetch user bookings
     const { bookings: userBookings, loading: userBookingsLoading, refetch: refetchUserBookings } = useUserBookings();
@@ -169,17 +172,6 @@ export default function ProfileScreen() {
                         ))}
                     </View>
                 )}
-
-                {/* Divider */}
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-                {/* Log Out Button */}
-                <Button
-                    title="Log Out"
-                    variant="destructive"
-                    onPress={signOut}
-                    fullWidth
-                />
             </ScrollView>
         );
     };
@@ -190,11 +182,20 @@ export default function ProfileScreen() {
 
             {/* Header */}
             <View style={[styles.header, { backgroundColor: colors.background }]}>
+                <TouchableOpacity
+                    style={[styles.settingsButton, { backgroundColor: colors.backgroundSecondary }]}
+                    onPress={() => setSettingsVisible(true)}
+                >
+                    <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
+                </TouchableOpacity>
+
                 <Image
                     source={{ uri: 'https://i.pravatar.cc/150?u=' + user?.email }}
                     style={styles.avatar}
                 />
-                <Title2 style={{ marginTop: Spacing.m }}>{user?.email?.split('@')[0] || 'Traveler'}</Title2>
+                <Title2 style={{ marginTop: Spacing.m }}>
+                    {user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Traveler'}
+                </Title2>
                 <Body style={{ color: colors.textSecondary }}>{user?.email}</Body>
             </View>
 
@@ -207,6 +208,9 @@ export default function ProfileScreen() {
                 {activeTab === 'requests' && renderRequestsTab()}
                 {activeTab === 'listings' && renderListingsTab()}
             </View>
+
+            {/* Settings Modal */}
+            <SettingsModal visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
         </SafeAreaView>
     );
 }
@@ -218,6 +222,18 @@ const styles = StyleSheet.create({
     header: {
         alignItems: 'center',
         paddingVertical: Spacing.xl,
+        position: 'relative',
+    },
+    settingsButton: {
+        position: 'absolute',
+        top: Spacing.m,
+        right: Spacing.m,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1,
     },
     avatar: {
         width: 80,
