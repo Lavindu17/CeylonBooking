@@ -30,9 +30,26 @@ export default function HomeScreen() {
   async function fetchListings() {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from('listings').select('*');
+      const { data, error } = await supabase
+        .from('listings')
+        .select(`
+          *,
+          listing_images (
+            id,
+            url,
+            order
+          )
+        `);
+
       if (error) throw error;
-      setListings(data || []);
+
+      // Map listing_images to images and sort by order
+      const listingsWithImages = (data || []).map((listing: any) => ({
+        ...listing,
+        images: listing.listing_images?.sort((a: any, b: any) => a.order - b.order) || []
+      }));
+
+      setListings(listingsWithImages);
     } catch (e) {
       console.error(e);
     } finally {

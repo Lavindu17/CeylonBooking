@@ -55,9 +55,13 @@ export default function ListingDetails() {
             return;
         }
 
+        console.log('Fetched listing data:', listingData);
+        console.log('listing_images from DB:', listingData.listing_images);
+
         // Sort images by order
         if (listingData.listing_images) {
             listingData.listing_images.sort((a: any, b: any) => a.order - b.order);
+            console.log('Sorted images:', listingData.listing_images);
         }
 
         // Fetch host data using RPC function
@@ -68,13 +72,15 @@ export default function ListingDetails() {
         if (hostError) {
             console.error('Host data error:', hostError);
             // Set listing without host data
-            setListing({
+            const finalListing = {
                 ...listingData,
                 images: listingData.listing_images || []
-            });
+            };
+            console.log('Setting listing (no host):', finalListing);
+            setListing(finalListing);
         } else if (hostData) {
             // Combine listing with host data
-            setListing({
+            const finalListing = {
                 ...listingData,
                 images: listingData.listing_images || [],
                 host: {
@@ -85,13 +91,18 @@ export default function ListingDetails() {
                         avatar_url: (hostData as any).avatar_url
                     }
                 }
-            });
+            };
+            console.log('Setting listing (with host):', finalListing);
+            console.log('Images count:', finalListing.images?.length);
+            setListing(finalListing);
         } else {
             // No host data found
-            setListing({
+            const finalListing = {
                 ...listingData,
                 images: listingData.listing_images || []
-            });
+            };
+            console.log('Setting listing (no host data found):', finalListing);
+            setListing(finalListing);
         }
     }
 
