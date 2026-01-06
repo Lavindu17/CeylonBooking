@@ -1,5 +1,5 @@
 import { decode } from 'base64-arraybuffer';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from './supabase';
 
 export interface UploadProgress {
@@ -78,8 +78,12 @@ export async function uploadListingImages(
 ): Promise<Array<{ url: string; storagePath: string; order: number }>> {
     const results: Array<{ url: string; storagePath: string; order: number }> = [];
 
+    console.log(`Starting upload of ${uris.length} images for listing ${listingId}`);
+
     for (let i = 0; i < uris.length; i++) {
         try {
+            console.log(`Uploading image ${i + 1}/${uris.length}: ${uris[i]}`);
+
             onProgress?.({
                 imageIndex: i,
                 progress: 0,
@@ -87,6 +91,8 @@ export async function uploadListingImages(
             });
 
             const result = await uploadListingImage(uris[i], listingId, i);
+
+            console.log(`Successfully uploaded image ${i + 1}:`, result.url);
 
             results.push({
                 ...result,
@@ -100,6 +106,8 @@ export async function uploadListingImages(
                 url: result.url,
             });
         } catch (error: any) {
+            console.error(`Failed to upload image ${i + 1}:`, error);
+
             onProgress?.({
                 imageIndex: i,
                 progress: 0,
@@ -107,11 +115,12 @@ export async function uploadListingImages(
                 error: error.message,
             });
 
-            // Continue with other images even if one fails
-            console.error(`Failed to upload image ${i}:`, error);
+            // Throw error immediately instead of continuing
+            throw new Error(`Failed to upload image ${i + 1}: ${error.message}`);
         }
     }
 
+    console.log(`Successfully uploaded ${results.length} images`);
     return results;
 }
 

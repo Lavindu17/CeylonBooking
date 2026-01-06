@@ -1,6 +1,7 @@
 import { WizardLayout } from '@/components/host/WizardLayout';
 import { Body, Caption1, Headline, Title2 } from '@/components/ui/Typography';
 import { BorderRadius, formatCurrency, SemanticColors, Spacing } from '@/constants/Design';
+import { useAuth } from '@/contexts/AuthContext';
 import { useListingCreation } from '@/contexts/ListingCreationContext';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
@@ -9,6 +10,7 @@ import { Alert, Image, ScrollView, StyleSheet, useColorScheme, View } from 'reac
 
 export default function ReviewStep() {
     const { listing, resetListing } = useListingCreation();
+    const { user } = useAuth();
     const router = useRouter();
     const [uploading, setUploading] = useState(false);
     const colorScheme = useColorScheme();
@@ -18,10 +20,18 @@ export default function ReviewStep() {
         setUploading(true);
 
         try {
+            // Validate user is authenticated
+            if (!user?.id) {
+                throw new Error('You must be logged in to create a listing');
+            }
+
+            console.log('Creating listing for user:', user.id);
+
             // 1. First insert the listing to get the ID
             const { data: newListing, error: listingError } = await supabase
                 .from('listings')
                 .insert({
+                    host_id: user.id,
                     title: listing.title,
                     description: listing.description,
                     price: listing.price,
@@ -41,19 +51,18 @@ export default function ReviewStep() {
             if (!newListing) throw new Error('Failed to create listing');
 
             // 2. Upload images to Supabase Storage
+            console.log(`Preparing to upload ${listing.images.length} images...`);
             const { uploadListingImages, saveImageMetadata } = await import('@/lib/imageUpload');
 
             const uploadedImages = await uploadListingImages(
                 listing.images,
                 newListing.id,
                 (progress) => {
-                    console.log(`Uploading image ${progress.imageIndex + 1}/${listing.images.length}`);
+                    console.log(`Uploading image ${progress.imageIndex + 1}/${listing.images.length}`, progress.status);
                 }
             );
 
-            if (uploadedImages.length === 0) {
-                throw new Error('Failed to upload images');
-            }
+            console.log('All images uploaded successfully:', uploadedImages.length);
 
             // 3. Save image metadata to database
             await saveImageMetadata(newListing.id, uploadedImages);
