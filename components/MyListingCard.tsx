@@ -42,7 +42,11 @@ export function MyListingCard({ listing, onDelete }: Props) {
         >
             {/* Image */}
             <Image
-                source={{ uri: listing.image_url ?? undefined }}
+                source={{
+                    uri: (listing.images && listing.images.length > 0)
+                        ? listing.images[0].url
+                        : (listing.image_url ?? undefined)
+                }}
                 style={styles.image}
                 resizeMode="cover"
             />

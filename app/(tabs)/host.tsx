@@ -22,13 +22,24 @@ export default function HostScreen() {
         setLoading(true);
         const { data, error } = await supabase
             .from('listings')
-            .select('*')
+            .select(`
+                *,
+                listing_images (
+                    id,
+                    url,
+                    order
+                )
+            `)
             .eq('host_id', user?.id);
 
         if (error) {
             console.error('Error fetching listings:', error);
         } else {
-            setListings(data || []);
+            const listingsWithImages = (data || []).map((listing: any) => ({
+                ...listing,
+                images: listing.listing_images?.sort((a: any, b: any) => a.order - b.order) || []
+            }));
+            setListings(listingsWithImages);
         }
         setLoading(false);
     }

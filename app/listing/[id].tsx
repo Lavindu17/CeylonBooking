@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
+    FlatList,
     Image,
     ScrollView,
     StyleSheet,
@@ -34,16 +35,29 @@ export default function ListingDetails() {
     }, [id]);
 
     async function fetchListing() {
-        // Fetch listing data
+        // Fetch listing data with images
         const { data: listingData, error: listingError } = await supabase
             .from('listings')
-            .select('*')
+            .select(`
+                *,
+                listing_images (
+                    id,
+                    storage_path,
+                    url,
+                    order
+                )
+            `)
             .eq('id', id)
             .single();
 
         if (listingError) {
             console.error(listingError);
             return;
+        }
+
+        // Sort images by order
+        if (listingData.listing_images) {
+            listingData.listing_images.sort((a: any, b: any) => a.order - b.order);
         }
 
         // Fetch host data using RPC function
@@ -54,11 +68,15 @@ export default function ListingDetails() {
         if (hostError) {
             console.error('Host data error:', hostError);
             // Set listing without host data
-            setListing(listingData);
+            setListing({
+                ...listingData,
+                images: listingData.listing_images || []
+            });
         } else if (hostData) {
             // Combine listing with host data
             setListing({
                 ...listingData,
+                images: listingData.listing_images || [],
                 host: {
                     id: (hostData as any).id,
                     email: (hostData as any).email,
@@ -70,7 +88,10 @@ export default function ListingDetails() {
             });
         } else {
             // No host data found
-            setListing(listingData);
+            setListing({
+                ...listingData,
+                images: listingData.listing_images || []
+            });
         }
     }
 
@@ -104,12 +125,44 @@ export default function ListingDetails() {
             />
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-                {/* Image Carousel (Single Image for now) */}
-                <Image
-                    source={{ uri: listing.image_url ?? undefined }}
-                    style={styles.image}
-                    resizeMode="cover"
-                />
+                {/* Image Carousel */}
+                {listing.images && listing.images.length > 0 ? (
+                    <View>
+                        <FlatList
+                            data={listing.images}
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <Image
+                                    source={{ uri: item.url }}
+                                    style={styles.image}
+                                    resizeMode="cover"
+                                />
+                            )}
+                        />
+                        {listing.images.length > 1 && (
+                            <View style={styles.paginationDots}>
+                                {listing.images.map((_, index) => (
+                                    <View
+                                        key={index}
+                                        style={[
+                                            styles.dot,
+                                            index === 0 && styles.activeDot
+                                        ]}
+                                    />
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                ) : (
+                    <Image
+                        source={{ uri: listing.image_url ?? 'https://images.unsplash.com/photo-1449156493391-d2cfa28e468b' }}
+                        style={styles.image}
+                        resizeMode="cover"
+                    />
+                )}
 
                 <View style={styles.content}>
                     <Title2>{listing.title}</Title2>
@@ -312,6 +365,23 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    paginationDots: {
+        position: 'absolute',
+        bottom: 16,
+        flexDirection: 'row',
+        alignSelf: 'center',
+        gap: 6,
+    },
+    dot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.5)',
+    },
+    activeDot: {
+        backgroundColor: '#fff',
+        width: 20,
     },
     shadowTop: {
         shadowColor: '#000',

@@ -20,7 +20,11 @@ export function ListingCard({ listing }: Props) {
             onPress={() => router.push(`/listing/${listing.id}`)}
         >
             <Image
-                source={{ uri: listing.image_url ?? 'https://via.placeholder.com/400' }}
+                source={{
+                    uri: (listing.images && listing.images.length > 0)
+                        ? listing.images[0].url
+                        : (listing.image_url ?? 'https://via.placeholder.com/400')
+                }}
                 style={styles.image}
                 resizeMode="cover"
             />

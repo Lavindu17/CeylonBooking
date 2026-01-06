@@ -18,37 +18,64 @@ export default function ReviewStep() {
         setUploading(true);
 
         try {
-            // 1. Upload Images (Optimistic: just using the first one locally for now if not uploading to storage)
-            // Real implementation would upload to Supabase Storage here.
-            // For MVP/Demo, we assume the URI is local. 
-            // Since we can't upload to a bucket without one set up, we might just store the local URI or a placeholder.
-            // But 'listing.image_url' is expected to be a string.
+            // 1. First insert the listing to get the ID
+            const { data: newListing, error: listingError } = await supabase
+                .from('listings')
+                .insert({
+                    title: listing.title,
+                    description: listing.description,
+                    price: listing.price,
+                    location: listing.location,
+                    beds: listing.beds,
+                    baths: listing.baths,
+                    facilities: listing.facilities,
+                    latitude: listing.latitude,
+                    longitude: listing.longitude,
+                    google_maps_url: listing.google_maps_url,
+                    // image_url will be set to first uploaded image URL
+                })
+                .select()
+                .single();
 
-            // TODO: Implement actual image upload to Supabase Storage "listings" bucket.
-            // For now, we'll assume the image_url is just the first image path (which won't work across devices but fine for demo).
-            const mainImage = listing.images.length > 0 ? listing.images[0] : null;
+            if (listingError) throw listingError;
+            if (!newListing) throw new Error('Failed to create listing');
 
-            // 2. Insert into Database
-            const { error } = await supabase.from('listings').insert({
-                title: listing.title,
-                description: listing.description,
-                price: listing.price,
-                location: listing.location,
-                beds: listing.beds,
-                baths: listing.baths,
-                image_url: mainImage, // Mapping first image
-                facilities: listing.facilities,
-                // created_at is default
-            });
+            // 2. Upload images to Supabase Storage
+            const { uploadListingImages, saveImageMetadata } = await import('@/lib/imageUpload');
 
-            if (error) throw error;
+            const uploadedImages = await uploadListingImages(
+                listing.images,
+                newListing.id,
+                (progress) => {
+                    console.log(`Uploading image ${progress.imageIndex + 1}/${listing.images.length}`);
+                }
+            );
 
-            // 3. Success
+            if (uploadedImages.length === 0) {
+                throw new Error('Failed to upload images');
+            }
+
+            // 3. Save image metadata to database
+            await saveImageMetadata(newListing.id, uploadedImages);
+
+            // 4. Update listing with the first image URL as fallback
+            const { error: updateError } = await supabase
+                .from('listings')
+                .update({ image_url: uploadedImages[0].url })
+                .eq('id', newListing.id);
+
+            if (updateError) {
+                console.warn('Failed to update listing image_url:', updateError);
+                // Don't throw - this is just a fallback field
+            }
+
+            // 5. Success
             resetListing();
             router.replace('/host/create-listing/success');
 
         } catch (e: any) {
-            Alert.alert('Error publishing', e.message);
+            console.error('Error publishing listing:', e);
+            Alert.alert('Error publishing', e.message || 'An unexpected error occurred');
         } finally {
             setUploading(false);
         }

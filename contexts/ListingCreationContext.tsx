@@ -7,6 +7,7 @@ export type ListingDraft = {
     location: string;
     latitude: number | null;
     longitude: number | null;
+    google_maps_url: string | null;
     beds: number;
     baths: number;
     guests: number;
@@ -28,6 +29,7 @@ const defaultListing: ListingDraft = {
     location: '',
     latitude: null,
     longitude: null,
+    google_maps_url: null,
     beds: 1,
     baths: 1,
     guests: 2,
