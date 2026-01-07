@@ -1,10 +1,25 @@
 import { WizardLayout } from '@/components/host/WizardLayout';
-import { Body, Caption1 } from '@/components/ui/Typography';
+import { Body, Caption1, Subheadline } from '@/components/ui/Typography';
 import { BorderRadius, SemanticColors, Spacing } from '@/constants/Design';
 import { useListingCreation } from '@/contexts/ListingCreationContext';
+import { generateGoogleMapsUrl, getCurrentLocation, reverseGeocode } from '@/lib/location';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { StyleSheet, TextInput, View, useColorScheme } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
+import { GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
+import MapView, { Marker, Region } from 'react-native-maps';
+
+const GOOGLE_PLACES_API_KEY = Constants.expoConfig?.extra?.GOOGLE_PLACES_WEB_KEY || '';
+
+// Sri Lanka default location (Colombo)
+const DEFAULT_REGION: Region = {
+    latitude: 6.9271,
+    longitude: 79.8612,
+    latitudeDelta: 0.5,
+    longitudeDelta: 0.5,
+};
 
 export default function LocationStep() {
     const { listing, updateListing } = useListingCreation();
@@ -12,7 +27,103 @@ export default function LocationStep() {
     const colorScheme = useColorScheme();
     const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
 
-    const isValid = listing.location.length > 3;
+    const mapRef = useRef<MapView>(null);
+    const autocompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
+
+    const [region, setRegion] = useState<Region>(() => {
+        if (listing.latitude && listing.longitude) {
+            return {
+                latitude: listing.latitude,
+                longitude: listing.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+            };
+        }
+        return DEFAULT_REGION;
+    });
+
+    const [markerPosition, setMarkerPosition] = useState<{ latitude: number; longitude: number } | null>(() => {
+        if (listing.latitude && listing.longitude) {
+            return { latitude: listing.latitude, longitude: listing.longitude };
+        }
+        return null;
+    });
+
+    const [loadingLocation, setLoadingLocation] = useState(false);
+    const [isManualSelection, setIsManualSelection] = useState(false);
+
+    const isValid = listing.location.length > 3 && listing.latitude !== null && listing.longitude !== null;
+
+    // Update location in context
+    const updateLocationData = async (lat: number, lng: number, address?: string) => {
+        const locationAddress = address || await reverseGeocode(lat, lng);
+        const googleMapsUrl = generateGoogleMapsUrl(lat, lng);
+
+        updateListing({
+            latitude: lat,
+            longitude: lng,
+            location: locationAddress,
+            google_maps_url: googleMapsUrl,
+        });
+
+        setMarkerPosition({ latitude: lat, longitude: lng });
+    };
+
+    // Handle "Use Current Location" button
+    const handleUseCurrentLocation = async () => {
+        setLoadingLocation(true);
+        try {
+            const locationResult = await getCurrentLocation();
+
+            if (locationResult) {
+                const newRegion = {
+                    latitude: locationResult.latitude,
+                    longitude: locationResult.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                };
+
+                setRegion(newRegion);
+                mapRef.current?.animateToRegion(newRegion, 1000);
+
+                await updateLocationData(
+                    locationResult.latitude,
+                    locationResult.longitude,
+                    locationResult.address
+                );
+
+                // Clear autocomplete
+                autocompleteRef.current?.setAddressText(locationResult.address);
+            } else {
+                Alert.alert(
+                    'Location Permission Required',
+                    'Please enable location services to use this feature.',
+                    [
+                        { text: 'OK' },
+                        { text: 'Open Settings', onPress: () => Linking.openSettings() }
+                    ]
+                );
+            }
+        } catch (error) {
+            console.error('Error getting current location:', error);
+            Alert.alert('Error', 'Failed to get your current location. Please try again.');
+        } finally {
+            setLoadingLocation(false);
+        }
+    };
+
+    // Handle map tap for manual selection
+    const handleMapPress = async (event: any) => {
+        const { latitude, longitude } = event.nativeEvent.coordinate;
+        setIsManualSelection(true);
+        await updateLocationData(latitude, longitude);
+    };
+
+    // Handle marker drag
+    const handleMarkerDragEnd = async (event: any) => {
+        const { latitude, longitude } = event.nativeEvent.coordinate;
+        await updateLocationData(latitude, longitude);
+    };
 
     const handleNext = () => {
         router.push('/host/create-listing/details');
@@ -27,25 +138,152 @@ export default function LocationStep() {
             isNextDisabled={!isValid}
             onNext={handleNext}
         >
-            <View style={styles.formGroup}>
-                <View style={[styles.inputContainer, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-                    <Ionicons name="location-outline" size={20} color={colors.textSecondary} />
-                    <TextInput
-                        style={[styles.input, { color: colors.textPrimary }]}
-                        placeholder="Search for town or area..."
-                        placeholderTextColor={colors.textTertiary}
-                        value={listing.location}
-                        onChangeText={(text) => updateListing({ location: text })}
-                    />
-                </View>
+            {/* Google Places Autocomplete Search */}
+            <View style={[styles.autocompleteContainer, { zIndex: 10 }]}>
+                <GooglePlacesAutocomplete
+                    ref={autocompleteRef}
+                    placeholder="Search for town or area..."
+                    onPress={(data, details = null) => {
+                        if (details) {
+                            const lat = details.geometry.location.lat;
+                            const lng = details.geometry.location.lng;
+                            const address = details.formatted_address || data.description;
+
+                            const newRegion = {
+                                latitude: lat,
+                                longitude: lng,
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01,
+                            };
+
+                            setRegion(newRegion);
+                            mapRef.current?.animateToRegion(newRegion, 1000);
+                            updateLocationData(lat, lng, address);
+                            setIsManualSelection(false);
+                        }
+                    }}
+                    query={{
+                        key: GOOGLE_PLACES_API_KEY,
+                        language: 'en',
+                        components: 'country:lk', // Restrict to Sri Lanka
+                    }}
+                    fetchDetails={true}
+                    enablePoweredByContainer={false}
+                    styles={{
+                        container: {
+                            flex: 0,
+                        },
+                        textInputContainer: {
+                            backgroundColor: colors.backgroundSecondary,
+                            borderRadius: BorderRadius.button,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            paddingHorizontal: Spacing.s,
+                        },
+                        textInput: {
+                            height: 50,
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            backgroundColor: 'transparent',
+                        },
+                        predefinedPlacesDescription: {
+                            color: colors.textPrimary,
+                        },
+                        listView: {
+                            backgroundColor: colors.backgroundSecondary,
+                            borderRadius: BorderRadius.card,
+                            marginTop: Spacing.s,
+                        },
+                        row: {
+                            backgroundColor: colors.backgroundSecondary,
+                            paddingVertical: Spacing.m,
+                        },
+                        separator: {
+                            backgroundColor: colors.border,
+                            height: 1,
+                        },
+                        description: {
+                            color: colors.textPrimary,
+                        },
+                        loader: {
+                            flexDirection: 'row',
+                            justifyContent: 'flex-end',
+                            height: 20,
+                        },
+                    }}
+                    textInputProps={{
+                        placeholderTextColor: colors.textTertiary,
+                        leftIcon: <Ionicons name="search" size={20} color={colors.textSecondary} />,
+                    }}
+                />
             </View>
 
-            {/* Map Preview Placeholder */}
-            <View style={[styles.mapPlaceholder, { backgroundColor: colors.backgroundSecondary }]}>
-                <Ionicons name="map" size={48} color={colors.textDisabled} />
-                <Body style={{ color: colors.textSecondary, marginTop: Spacing.m }}>Map Preview (Coming Soon)</Body>
-                <Caption1 style={{ color: colors.textTertiary, textAlign: 'center', marginTop: Spacing.s }}>
-                    {listing.location || 'Enter a location to see map'}
+            {/* Map View */}
+            <View style={styles.mapContainer}>
+                <MapView
+                    ref={mapRef}
+                    style={styles.map}
+                    region={region}
+                    onPress={handleMapPress}
+                    showsUserLocation={true}
+                    showsMyLocationButton={false}
+                >
+                    {markerPosition && (
+                        <Marker
+                            coordinate={markerPosition}
+                            draggable
+                            onDragEnd={handleMarkerDragEnd}
+                        />
+                    )}
+                </MapView>
+
+                {/* Use Current Location Button */}
+                <Pressable
+                    style={[styles.currentLocationButton, { backgroundColor: colors.tint }]}
+                    onPress={handleUseCurrentLocation}
+                    disabled={loadingLocation}
+                >
+                    {loadingLocation ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <>
+                            <Ionicons name="locate" size={20} color="#fff" />
+                            <Body style={{ color: '#fff', marginLeft: Spacing.s }}>Use Current Location</Body>
+                        </>
+                    )}
+                </Pressable>
+            </View>
+
+            {/* Location Preview Card */}
+            {listing.location && markerPosition && (
+                <View style={[styles.previewCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                    <View style={styles.previewHeader}>
+                        <Ionicons name="location" size={24} color={colors.tint} />
+                        <View style={{ flex: 1, marginLeft: Spacing.m }}>
+                            <Subheadline style={{ color: colors.textPrimary }}>Selected Location</Subheadline>
+                            <Body style={{ color: colors.textSecondary, marginTop: 4 }}>{listing.location}</Body>
+                            <Caption1 style={{ color: colors.textTertiary, marginTop: 4 }}>
+                                {listing.latitude?.toFixed(4)}° N, {listing.longitude?.toFixed(4)}° E
+                            </Caption1>
+                        </View>
+                    </View>
+
+                    {listing.google_maps_url && (
+                        <Pressable
+                            style={styles.openMapsButton}
+                            onPress={() => Linking.openURL(listing.google_maps_url!)}
+                        >
+                            <Caption1 style={{ color: colors.tint }}>Open in Google Maps</Caption1>
+                            <Ionicons name="arrow-forward" size={16} color={colors.tint} />
+                        </Pressable>
+                    )}
+                </View>
+            )}
+
+            {/* Helper Text */}
+            <View style={{ marginTop: Spacing.m }}>
+                <Caption1 style={{ color: colors.textTertiary, textAlign: 'center' }}>
+                    Search for a location, use your current location, or tap on the map to select manually
                 </Caption1>
             </View>
         </WizardLayout>
@@ -53,27 +291,53 @@ export default function LocationStep() {
 }
 
 const styles = StyleSheet.create({
-    formGroup: {
+    autocompleteContainer: {
+        marginBottom: Spacing.m,
+    },
+    mapContainer: {
+        height: 350,
+        borderRadius: BorderRadius.card,
+        overflow: 'hidden',
         marginBottom: Spacing.l,
+        position: 'relative',
     },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.m,
-        height: 50,
-        borderWidth: 1,
-        borderRadius: BorderRadius.button,
-        gap: Spacing.s,
-    },
-    input: {
-        flex: 1,
+    map: {
+        width: '100%',
         height: '100%',
     },
-    mapPlaceholder: {
-        height: 300,
-        borderRadius: BorderRadius.card,
-        justifyContent: 'center',
+    currentLocationButton: {
+        position: 'absolute',
+        bottom: Spacing.m,
+        right: Spacing.m,
+        paddingHorizontal: Spacing.m,
+        paddingVertical: Spacing.s,
+        borderRadius: BorderRadius.button,
+        flexDirection: 'row',
         alignItems: 'center',
-        padding: Spacing.l,
-    }
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    previewCard: {
+        borderRadius: BorderRadius.card,
+        borderWidth: 1,
+        padding: Spacing.m,
+        marginBottom: Spacing.m,
+    },
+    previewHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    openMapsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: Spacing.m,
+        paddingTop: Spacing.m,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.1)',
+        gap: Spacing.xs,
+    },
 });

@@ -1,0 +1,1006 @@
+================================================================================
+CEYLON BOOKING - ACTUAL IMPLEMENTATION DOCUMENTATION
+Booking Workflow & Technology Stack
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Architecture Overview
+2. Database Implementation
+3. Type System
+4. Guest Booking Flow
+5. Host Booking Management
+6. Real-time Features
+7. UI Components
+8. Code Examples
+9. Implementation Status
+
+
+================================================================================
+1. ARCHITECTURE OVERVIEW
+================================================================================
+
+Technology Stack:
+-----------------
+Frontend: React Native with Expo
+Backend: Supabase (PostgreSQL + Real-time + Auth + Storage)
+State Management: React Hooks & Context API
+UI Framework: Custom components with Apple Human Interface Guidelines
+Navigation: Expo Router (file-based routing)
+Date Handling: react-native-calendars
+
+Key Design Decisions:
+---------------------
+✓ Request-to-book model (pending → confirmed workflow)
+✓ Real-time subscriptions for instant updates
+✓ Row Level Security (RLS) for data protection
+✓ Separate guest and host booking views
+✓ Simple 3-status booking lifecycle (pending, confirmed, cancelled)
+✓ No payment integration yet (Phase 3 - planned)
+
+
+================================================================================
+2. DATABASE IMPLEMENTATION
+================================================================================
+
+Location: supabase/schema.sql
+
+LISTINGS TABLE
+--------------
+create table public.listings (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  host_id uuid references auth.users(id) not null,
+  title text not null,
+  description text,
+  price numeric not null,
+  beds integer not null,
+  baths integer not null,
+  image_url text,
+  location text not null,
+  facilities text[] default '{}',
+  google_maps_url text,
+  latitude double precision,
+  longitude double precision
+);
+
+BOOKINGS TABLE
+--------------
+create table public.bookings (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  listing_id uuid references public.listings(id) not null,
+  user_id uuid references auth.users(id) not null,
+  start_date date not null,
+  end_date date not null,
+  total_price numeric not null,
+  status text check (status in ('pending', 'confirmed', 'cancelled')) default 'pending'
+);
+
+ROW LEVEL SECURITY (RLS) POLICIES
+----------------------------------
+
+Listings Policies:
+1. "Enable read access for all users" - Anyone can view listings
+2. "Users can create listings" - Users can only create listings as themselves
+3. "Users can update own listings" - Users can only edit their own listings
+4. "Users can delete own listings" - Users can only delete their own listings
+
+Bookings Policies:
+1. "Users can view own bookings" - Guests see only their bookings
+   using (auth.uid() = user_id)
+
+2. "Users can create bookings" - Users can only book as themselves
+   with check (auth.uid() = user_id)
+
+3. "Hosts can view bookings for their listings" - Hosts see bookings for their properties
+   using (
+     exists (
+       select 1 from public.listings
+       where listings.id = bookings.listing_id
+       and listings.host_id = auth.uid()
+     )
+   )
+
+4. "Hosts can update booking status" - Hosts can approve/reject bookings
+   using (
+     exists (
+       select 1 from public.listings
+       where listings.id = bookings.listing_id
+       and listings.host_id = auth.uid()
+     )
+   )
+
+Security Implications:
+- Guests cannot see other guests' bookings
+- Hosts can only see bookings for their own listings
+- Only hosts can approve/reject bookings
+- Guests cannot modify booking status after creation
+- No unauthorized data access possible
+
+
+================================================================================
+3. TYPE SYSTEM
+================================================================================
+
+Location: types/booking.ts
+
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
+
+export interface Booking {
+    id: string;
+    created_at: string;
+    listing_id: string;
+    user_id: string;
+    start_date: string;          // ISO date format (YYYY-MM-DD)
+    end_date: string;            // ISO date format (YYYY-MM-DD)
+    total_price: number;         // LKR amount
+    status: BookingStatus;
+}
+
+export interface BookingWithListing extends Booking {
+    listing: Listing;            // Joined listing data for guest view
+}
+
+export interface BookingWithDetails extends Booking {
+    listing: Listing;
+    guest_email?: string;        // Added for host view to see guest info
+}
+
+Type Safety Benefits:
+- Compile-time error checking
+- Autocomplete in IDE
+- Prevents invalid status values
+- Clear data structure contracts
+
+
+================================================================================
+4. GUEST BOOKING FLOW
+================================================================================
+
+STEP 1: BROWSE LISTINGS
+------------------------
+Screen: app/(tabs)/explore.tsx
+User browses available listings with search/filter capabilities
+
+STEP 2: VIEW LISTING DETAILS
+-----------------------------
+Screen: app/listing/[id].tsx
+- User views full listing details
+- Sees host information
+- Reviews amenities and photos
+- Clicks "Book Now" button
+
+STEP 3: SELECT DATES (BookingModal)
+------------------------------------
+Component: components/BookingModal.tsx
+
+Modal Features:
+✓ Calendar-based date selection
+✓ Visual date range highlighting
+✓ Real-time price calculation
+✓ Night count display
+✓ "You won't be charged yet" disclaimer
+
+User Interaction:
+1. Click first date → sets start_date
+2. Click second date → sets end_date
+3. If second date < first date → resets to new start_date
+4. Selected range highlights in brand green color
+5. Total price calculates: nights × price_per_night
+
+Code Implementation:
+--------------------
+const onDayPress = (day: DateData) => {
+    if (!startDate || (startDate && endDate)) {
+        // Reset: start new selection
+        setStartDate(day.dateString);
+        setEndDate(null);
+    } else if (startDate && !endDate) {
+        if (day.dateString < startDate) {
+            // User clicked earlier date, reset
+            setStartDate(day.dateString);
+        } else {
+            // Complete the range
+            setEndDate(day.dateString);
+        }
+    }
+};
+
+const calculateTotal = () => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays * listing.price;
+};
+
+STEP 4: REQUEST BOOKING
+------------------------
+Component: components/BookingModal.tsx
+
+const handleBooking = async () => {
+    if (!startDate || !endDate || !user) return;
+    setLoading(true);
+    
+    const { error } = await supabase.from('bookings').insert({
+        listing_id: listing.id,
+        user_id: user.id,
+        start_date: startDate,
+        end_date: endDate,
+        total_price: calculateTotal(),
+        status: 'pending'                    // Always starts as pending
+    });
+    
+    setLoading(false);
+    
+    if (error) {
+        alert('Booking failed: ' + error.message);
+    } else {
+        alert('Booking Confirmed! Check your email.');
+        onClose();
+    }
+};
+
+What Happens:
+1. Validates dates and user authentication
+2. Creates booking record in database with status='pending'
+3. RLS policy ensures user_id matches authenticated user
+4. Shows success/error message
+5. Closes modal on success
+
+Note: Despite saying "Booking Confirmed", the status is 'pending' until host approves.
+
+STEP 5: VIEW BOOKINGS (Guest Profile)
+--------------------------------------
+Screen: app/(tabs)/profile.tsx
+Hook: hooks/useUserBookings.ts
+
+Real-time Booking Fetch:
+------------------------
+export function useUserBookings() {
+    const { user } = useAuth();
+    const [bookings, setBookings] = useState<BookingWithListing[]>([]);
+    
+    useEffect(() => {
+        if (!user) return;
+        
+        fetchBookings();
+        
+        // Real-time subscription
+        const subscription = supabase
+            .channel('user-bookings')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',              // INSERT, UPDATE, DELETE
+                    schema: 'public',
+                    table: 'bookings',
+                    filter: `user_id=eq.${user.id}`,
+                },
+                () => {
+                    fetchBookings();         // Refetch on any change
+                }
+            )
+            .subscribe();
+        
+        return () => subscription.unsubscribe();
+    }, [user]);
+    
+    const fetchBookings = async () => {
+        const { data, error } = await supabase
+            .from('bookings')
+            .select(`
+                *,
+                listing:listings(*)      // Join with listings table
+            `)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+        
+        if (!error) setBookings(data);
+    };
+    
+    return { bookings, loading, error, refetch: fetchBookings };
+}
+
+Features:
+✓ Automatic real-time updates when bookings change
+✓ Fetches listing details via JOIN
+✓ Ordered by newest first
+✓ Filtered by authenticated user
+✓ Refetch function for manual refresh
+
+Display Component:
+------------------
+Component: components/BookingCard.tsx
+
+Shows:
+- Listing title and location
+- Check-in and check-out dates
+- Number of nights
+- Status badge (pending/confirmed/cancelled) with color coding
+  - Pending: Amber/Yellow (#f59e0b)
+  - Confirmed: Green (#10b981)
+  - Cancelled: Red (#ef4444)
+- Total price in LKR
+
+Visual Design:
+- Shadows for card elevation
+- Icon indicators for status
+- Color-coded status badges
+- Responsive to dark/light mode
+
+
+================================================================================
+5. HOST BOOKING MANAGEMENT
+================================================================================
+
+STEP 1: VIEW INCOMING BOOKINGS
+-------------------------------
+Screen: app/(tabs)/profile.tsx (host section)
+Hook: hooks/useHostBookings.ts
+
+Multi-step Query Process:
+--------------------------
+const fetchBookings = async () => {
+    // Step 1: Get all listings owned by host
+    const { data: userListings } = await supabase
+        .from('listings')
+        .select('id')
+        .eq('host_id', user.id);
+    
+    if (!userListings?.length) {
+        setBookings([]);
+        return;
+    }
+    
+    const listingIds = userListings.map(l => l.id);
+    
+    // Step 2: Fetch bookings for those listings
+    const { data } = await supabase
+        .from('bookings')
+        .select(`
+            *,
+            listing:listings(*)
+        `)
+        .in('listing_id', listingIds)        // WHERE listing_id IN (...)
+        .order('created_at', { ascending: false });
+    
+    // Step 3: Fetch guest email for each booking
+    const bookingsWithEmails = await Promise.all(
+        (data || []).map(async (booking) => {
+            const { data: userData } = await supabase.auth.admin.getUserById(
+                booking.user_id
+            );
+            return {
+                ...booking,
+                guest_email: userData?.user?.email,
+            };
+        })
+    );
+    
+    setBookings(bookingsWithEmails);
+};
+
+Why This Approach?
+- RLS policy allows hosts to see bookings for their listings
+- Need to first identify which listings belong to the host
+- Guest email comes from auth.users (separate table)
+- Returns enriched booking data with guest info
+
+Real-time Updates:
+------------------
+const subscription = supabase
+    .channel('host-bookings')
+    .on(
+        'postgres_changes',
+        {
+            event: '*',
+            schema: 'public',
+            table: 'bookings',
+        },
+        () => {
+            fetchBookings();      // Refetch when ANY booking changes
+        }
+    )
+    .subscribe();
+
+Note: Listens to all booking changes, but RLS ensures only authorized data is returned
+
+STEP 2: APPROVE OR REJECT BOOKINGS
+-----------------------------------
+Component: components/HostBookingCard.tsx
+
+Status Update Function:
+-----------------------
+const updateBookingStatus = async (
+    bookingId: string,
+    status: 'confirmed' | 'cancelled'
+) => {
+    const { error } = await supabase
+        .from('bookings')
+        .update({ status })
+        .eq('id', bookingId);
+    
+    if (!error) {
+        await fetchBookings();            // Refresh list
+        return { success: true };
+    }
+    
+    return { success: false, error: error.message };
+};
+
+UI Components:
+--------------
+For Pending Bookings:
+- Two action buttons: "Reject" and "Approve"
+- Reject shows confirmation dialog
+- Approve immediately updates status to 'confirmed'
+- Loading state disables buttons during update
+
+const handleApprove = async () => {
+    setLoading(true);
+    const result = await onUpdateStatus(booking.id, 'confirmed');
+    setLoading(false);
+    
+    if (result.success) {
+        Alert.alert('Success', 'Booking approved successfully!');
+    } else {
+        Alert.alert('Error', result.error);
+    }
+};
+
+const handleReject = async () => {
+    Alert.alert(
+        'Reject Booking',
+        'Are you sure you want to reject this booking request?',
+        [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Reject',
+                style: 'destructive',
+                onPress: async () => {
+                    const result = await onUpdateStatus(booking.id, 'cancelled');
+                    // Handle result...
+                },
+            },
+        ]
+    );
+};
+
+For Confirmed/Cancelled Bookings:
+- Read-only view
+- No action buttons
+- Status badge shows current state
+
+
+================================================================================
+6. REAL-TIME FEATURES
+================================================================================
+
+Supabase Real-time Subscriptions
+---------------------------------
+
+What They Do:
+- Listen to database changes in real-time
+- No polling required
+- Instant UI updates
+- WebSocket-based
+
+Guest Subscription (useUserBookings):
+--------------------------------------
+Filter: `user_id=eq.${user.id}`
+Effect: Updates only when current user's bookings change
+
+Triggers:
+1. Host approves booking → status changes to 'confirmed'
+2. Host rejects booking → status changes to 'cancelled'
+3. New booking created by user → appears in list
+
+Host Subscription (useHostBookings):
+-------------------------------------
+Filter: None (listens to all bookings)
+Effect: RLS policies filter to only host's listings
+
+Triggers:
+1. New booking request arrives → appears in pending list
+2. Host approves/rejects → status updates
+3. Guest cancels → status changes
+
+Automatic Refetch:
+------------------
+.on('postgres_changes', { event: '*', ... }, () => {
+    fetchBookings();     // Refetch entire dataset
+})
+
+Event Types:
+- INSERT: New booking created
+- UPDATE: Status changed
+- DELETE: Booking deleted (not currently used)
+- '*': All events
+
+Network Efficiency:
+- Only refetches when changes occur
+- No constant polling
+- Maintains open WebSocket connection
+- Automatically reconnects on disconnect
+
+
+================================================================================
+7. UI COMPONENTS
+================================================================================
+
+Component: BookingModal.tsx
+----------------------------
+Purpose: Date selection and booking creation
+Type: Modal (slide animation from bottom)
+Parent: app/listing/[id].tsx
+
+Structure:
+┌──────────────────────────────────┐
+│  [X]        Select Dates         │
+│                                  │
+│  ┌──────────────────────────┐   │
+│  │   Calendar Component     │   │
+│  │   (react-native-calendar)│   │
+│  │   - Period marking       │   │
+│  │   - Brand colors         │   │
+│  │   - Dark/light theme     │   │
+│  └──────────────────────────┘   │
+│                                  │
+│  ────────────────────────────   │
+│                                  │
+│  LKR 45,000      [Request Booking]│
+│  3 nights                        │
+│                                  │
+│  You won't be charged yet        │
+└──────────────────────────────────┘
+
+Features:
+- Tap outside to close (overlay touchable)
+- Calendar with period marking
+- Dynamic price calculation
+- Disabled state when dates not selected
+- Loading state during submission
+
+Component: BookingCard.tsx
+---------------------------
+Purpose: Display guest's booking in profile
+Parent: app/(tabs)/profile.tsx (guest trips section)
+
+Layout:
+┌──────────────────────────────────┐
+│  Ella Mountain View Cabin        │
+│  📍 Ella                          │
+│                                  │
+│  📅 Jan 15 - Jan 18, 2026       │
+│     3 nights                     │
+│                                  │
+│  ────────────────────────────   │
+│                                  │
+│  ⏰ Pending        LKR 45,000   │
+└──────────────────────────────────┘
+
+Status Indicators:
+- Pending: ⏰ (time icon) + amber badge
+- Confirmed: ✓ (checkmark) + green badge
+- Cancelled: ✗ (close) + red badge
+
+Component: HostBookingCard.tsx
+-------------------------------
+Purpose: Display bookings for host to manage
+Parent: app/(tabs)/profile.tsx (host reservations section)
+
+Layout for Pending:
+┌──────────────────────────────────┐
+│  👤 guest@email.com              │
+│                                  │
+│  Ella Mountain View Cabin        │
+│                                  │
+│  📅 Jan 15 - Jan 18, 2026       │
+│     3 nights                     │
+│                                  │
+│  ────────────────────────────   │
+│                                  │
+│  ⏰ Pending        LKR 45,000   │
+│                                  │
+│  ────────────────────────────   │
+│                                  │
+│  [Reject]         [Approve]      │
+└──────────────────────────────────┘
+
+Layout for Confirmed/Cancelled:
+(Same as above but without action buttons)
+
+Interaction:
+- Reject: Shows confirmation dialog
+- Approve: Updates status immediately
+- Loading state: Disables buttons, shows spinner
+
+
+================================================================================
+8. CODE EXAMPLES
+================================================================================
+
+EXAMPLE 1: Creating a Booking
+------------------------------
+// User selects dates in BookingModal
+// Clicks "Request Booking"
+
+const handleBooking = async () => {
+    // Validation
+    if (!startDate || !endDate || !user) return;
+    
+    setLoading(true);
+    
+    // Insert into database
+    const { error } = await supabase
+        .from('bookings')
+        .insert({
+            listing_id: '123e4567-e89b-12d3-a456-426614174000',
+            user_id: user.id,
+            start_date: '2026-01-15',
+            end_date: '2026-01-18',
+            total_price: 45000,
+            status: 'pending'
+        });
+    
+    setLoading(false);
+    
+    // Result
+    if (error) {
+        alert('Booking failed: ' + error.message);
+    } else {
+        alert('Booking Confirmed! Check your email.');
+        onClose();
+    }
+};
+
+EXAMPLE 2: Fetching Guest Bookings
+-----------------------------------
+// In useUserBookings hook
+const fetchBookings = async () => {
+    const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+            id,
+            created_at,
+            listing_id,
+            user_id,
+            start_date,
+            end_date,
+            total_price,
+            status,
+            listing:listings(
+                id,
+                title,
+                location,
+                price,
+                beds,
+                baths,
+                image_url
+            )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+    
+    // Returns array of BookingWithListing
+    setBookings(data);
+};
+
+EXAMPLE 3: Host Approving Booking
+----------------------------------
+// In HostBookingCard component
+const handleApprove = async () => {
+    setLoading(true);
+    
+    // Call update function from useHostBookings
+    const result = await updateBookingStatus(booking.id, 'confirmed');
+    
+    setLoading(false);
+    
+    if (result.success) {
+        Alert.alert('Success', 'Booking approved!');
+        // Real-time subscription automatically updates UI
+    }
+};
+
+// In useHostBookings hook
+const updateBookingStatus = async (bookingId, status) => {
+    const { error } = await supabase
+        .from('bookings')
+        .update({ status })
+        .eq('id', bookingId);
+    
+    if (!error) {
+        await fetchBookings();  // Refresh list
+        return { success: true };
+    }
+    
+    return { success: false, error: error.message };
+};
+
+EXAMPLE 4: Real-time Subscription
+----------------------------------
+// Guest sees instant update when host approves
+useEffect(() => {
+    if (!user) return;
+    
+    // Initial fetch
+    fetchBookings();
+    
+    // Subscribe to changes
+    const subscription = supabase
+        .channel('user-bookings')
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',        // Listen for updates
+                schema: 'public',
+                table: 'bookings',
+                filter: `user_id=eq.${user.id}`,
+            },
+            (payload) => {
+                console.log('Booking updated:', payload.new);
+                fetchBookings();        // Refetch to update UI
+            }
+        )
+        .subscribe();
+    
+    // Cleanup
+    return () => {
+        subscription.unsubscribe();
+    };
+}, [user]);
+
+
+================================================================================
+9. IMPLEMENTATION STATUS
+================================================================================
+
+✅ COMPLETED FEATURES
+----------------------
+1. Database Schema
+   ✓ Listings table with host relationship
+   ✓ Bookings table with foreign keys
+   ✓ Row Level Security policies
+   ✓ Status check constraint
+
+2. Type System
+   ✓ TypeScript interfaces
+   ✓ Status type safety
+   ✓ Booking variants (with listing, with details)
+
+3. Guest Booking Flow
+   ✓ BookingModal with calendar
+   ✓ Date selection logic
+   ✓ Price calculation
+   ✓ Booking creation
+   ✓ Real-time booking list
+   ✓ BookingCard display
+
+4. Host Booking Management
+   ✓ Fetch bookings for host listings
+   ✓ Display pending requests
+   ✓ Approve/reject functionality
+   ✓ Real-time updates
+   ✓ HostBookingCard UI
+
+5. Real-time Features
+   ✓ Supabase subscriptions
+   ✓ Automatic UI updates
+   ✓ Guest notifications
+   ✓ Host notifications
+
+6. Security
+   ✓ RLS policies enforced
+   ✓ User authentication required
+   ✓ Data isolation (guests/hosts)
+   ✓ Authorization checks
+
+🚧 PENDING FEATURES (Future Phases)
+------------------------------------
+1. Payment Integration
+   ⏳ Stripe/PayHere setup
+   ⏳ Payment capture on booking
+   ⏳ Escrow system
+   ⏳ Automated payouts to hosts
+
+2. Advanced Booking Features
+   ⏳ Availability calendar blocking
+   ⏳ Prevent double bookings
+   ⏳ Minimum/maximum night requirements
+   ⏳ Seasonal pricing
+
+3. Cancellation System
+   ⏳ Guest cancellation flow
+   ⏳ Refund policy enforcement
+   ⏳ Cancellation deadline logic
+   ⏳ Partial refunds
+
+4. Messaging System
+   ⏳ Guest-host chat
+   ⏳ Booking-specific threads
+   ⏳ Real-time messaging
+   ⏳ Push notifications
+
+5. Reviews & Ratings
+   ⏳ Post-stay review submission
+   ⏳ Two-way reviews (guest + host)
+   ⏳ Rating aggregation
+   ⏳ Review display on listings
+
+6. Email Notifications
+   ⏳ Booking confirmation email
+   ⏳ Status update emails
+   ⏳ Check-in reminders
+   ⏳ Review prompts
+
+7. Calendar Features
+   ⏳ Host can block dates
+   ⏳ Show existing bookings on calendar
+   ⏳ Prevent overlapping bookings
+   ⏳ Multi-calendar sync
+
+8. Analytics
+   ⏳ Host dashboard (occupancy rate, revenue)
+   ⏳ Booking conversion metrics
+   ⏳ Popular listings analytics
+   ⏳ Revenue reporting
+
+❌ NOT IMPLEMENTED
+------------------
+1. Instant booking (currently all bookings require host approval)
+2. Booking modifications (date changes)
+3. Guest count validation
+4. Damage deposits
+5. Cleaning fees
+6. Service fees
+7. Tax calculation
+8. Dispute resolution
+
+
+================================================================================
+10. BOOKING LIFECYCLE - CURRENT IMPLEMENTATION
+================================================================================
+
+State Diagram:
+--------------
+
+    Guest Creates Booking
+            ↓
+    ┌───────────────┐
+    │   PENDING     │ ←── Initial state
+    └───────────────┘
+         ↓       ↓
+    Host Action  Guest Can View
+         ↓       ↓
+    ┌─────────────────────┐
+    │  Approve   Reject   │
+    ├──────────┬──────────┤
+    ↓          ↓
+┌──────────┐  ┌──────────┐
+│CONFIRMED │  │CANCELLED │ ←── Terminal states
+└──────────┘  └──────────┘
+
+Current Transitions:
+--------------------
+1. PENDING → CONFIRMED
+   - Trigger: Host clicks "Approve"
+   - Action: updateBookingStatus(id, 'confirmed')
+   - Effect: Guest sees green badge, host sees green badge
+
+2. PENDING → CANCELLED
+   - Trigger: Host clicks "Reject"
+   - Action: updateBookingStatus(id, 'cancelled')
+   - Effect: Guest sees red badge, booking marked cancelled
+
+Future Transitions (Not Implemented):
+--------------------------------------
+3. CONFIRMED → CHECKED_IN
+   - Trigger: Check-in date arrives
+   - Action: Automated or manual check-in
+
+4. CHECKED_IN → CHECKED_OUT
+   - Trigger: Check-out date arrives
+   - Action: Automated or manual check-out
+
+5. CHECKED_OUT → COMPLETED
+   - Trigger: Review period ends (14 days)
+   - Action: Finalize booking, release funds
+
+6. CONFIRMED → CANCELLED
+   - Trigger: Guest cancellation
+   - Action: Apply cancellation policy, issue refund
+
+
+================================================================================
+11. FILE STRUCTURE SUMMARY
+================================================================================
+
+Booking-Related Files:
+----------------------
+
+Database:
+- supabase/schema.sql                    (Tables, RLS policies)
+
+Types:
+- types/booking.ts                       (TypeScript interfaces)
+
+Hooks:
+- hooks/useUserBookings.ts               (Guest booking data & subscriptions)
+- hooks/useHostBookings.ts               (Host booking data & status updates)
+
+Components:
+- components/BookingModal.tsx            (Date selection & booking creation)
+- components/BookingCard.tsx             (Guest booking display)
+- components/HostBookingCard.tsx         (Host booking management)
+
+Screens:
+- app/listing/[id].tsx                   (Listing details with "Book Now")
+- app/(tabs)/profile.tsx                 (Guest trips & host reservations)
+
+Libraries:
+- lib/supabase.ts                        (Supabase client configuration)
+
+Context:
+- contexts/AuthContext.tsx               (User authentication state)
+
+
+================================================================================
+12. KEY TECHNICAL CONSIDERATIONS
+================================================================================
+
+Date Handling:
+--------------
+- Dates stored as ISO strings (YYYY-MM-DD)
+- PostgreSQL 'date' type (not timestamp)
+- Timezone-agnostic (dates only, no times)
+- Calculations use JavaScript Date API
+
+Price Calculation:
+------------------
+- LKR (Sri Lankan Rupees)
+- Stored as 'numeric' in PostgreSQL (preserves precision)
+- Frontend: number type
+- No decimal places for LKR (whole rupees)
+- Formula: (end_date - start_date) × price_per_night
+
+Security Considerations:
+------------------------
+1. RLS ensures data isolation
+2. Can't book own listing (future validation needed)
+3. Can't modify other users' bookings
+4. Guest info (email) only visible to hosts
+5. All database queries filtered by auth.uid()
+
+Performance:
+------------
+- Real-time subscriptions use WebSockets (efficient)
+- Queries use indexes on foreign keys
+- Joined queries (bookings + listings) in single call
+- No N+1 query problems
+
+Error Handling:
+---------------
+- Basic error messages via alerts
+- No retry logic currently
+- No offline support
+- Network failures show error alerts
+
+User Experience:
+----------------
+- Loading states on buttons
+- Disabled states when invalid
+- Real-time updates (no refresh needed)
+- Confirmation dialogs for destructive actions
+- Color-coded status indicators
+- Clear visual hierarchy
+
+
+================================================================================
+END OF DOCUMENTATION
+This document describes the actual implementation of the booking workflow
+in the CeylonBooking application as of the current codebase state.
+================================================================================
