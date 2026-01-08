@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { Alert, Image, StyleSheet, TouchableOpacity, useColorScheme, View } from 'react-native';
 
 export default function PhotosStep() {
-    const { listing, updateListing } = useListingCreation();
+    const { listing, updateListing, isEditMode } = useListingCreation();
     const router = useRouter();
     const colorScheme = useColorScheme();
     const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
@@ -21,12 +21,20 @@ export default function PhotosStep() {
             return;
         }
 
+        const totalImages = (listing.existingImages?.length || 0) + listing.images.length;
+        const remainingSlots = 10 - totalImages;
+
+        if (remainingSlots <= 0) {
+            Alert.alert('Limit reached', 'You can only have up to 10 photos.');
+            return;
+        }
+
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 3],
             quality: 0.8,
-            selectionLimit: 10 - listing.images.length, // Limit max photos
+            selectionLimit: remainingSlots,
             allowsMultipleSelection: true,
         });
 
@@ -36,37 +44,46 @@ export default function PhotosStep() {
         }
     };
 
-    const removeImage = (index: number) => {
+    const removeNewImage = (index: number) => {
         const newImages = [...listing.images];
         newImages.splice(index, 1);
         updateListing({ images: newImages });
     };
 
-    const handleNext = () => {
-        router.push('/host/create-listing/pricing');
+    const removeExistingImage = (index: number) => {
+        const existingImages = [...(listing.existingImages || [])];
+        existingImages.splice(index, 1);
+        updateListing({ existingImages });
     };
+
+    const handleNext = () => {
+        router.push(isEditMode ? `/host/edit-listing/${listing.id}/pricing` : '/host/create-listing/pricing');
+    };
+
+    const totalImages = (listing.existingImages?.length || 0) + listing.images.length;
+    const hasImages = totalImages > 0;
 
     return (
         <WizardLayout
             title="Add some photos of your house"
-            subtitle="You'll need at least 1 photo to get started."
+            subtitle={isEditMode ? "Update your listing photos. You'll need at least 1 photo." : "You'll need at least 1 photo to get started."}
             currentStep={5}
             totalSteps={7}
-            isNextDisabled={listing.images.length === 0}
+            isNextDisabled={!hasImages}
             onNext={handleNext}
         >
             <View style={styles.grid}>
-                {/* Photo List */}
-                {listing.images.map((uri, index) => (
-                    <View key={index} style={styles.photoContainer}>
-                        <Image source={{ uri }} style={styles.photo} />
+                {/* Existing Photos (Edit Mode) */}
+                {isEditMode && listing.existingImages?.map((image, index) => (
+                    <View key={`existing-${image.id}`} style={styles.photoContainer}>
+                        <Image source={{ uri: image.url }} style={styles.photo} />
                         <TouchableOpacity
                             style={styles.deleteButton}
-                            onPress={() => removeImage(index)}
+                            onPress={() => removeExistingImage(index)}
                         >
                             <Ionicons name="close" size={16} color="#fff" />
                         </TouchableOpacity>
-                        {index === 0 && (
+                        {index === 0 && listing.images.length === 0 && (
                             <View style={styles.coverBadge}>
                                 <Body style={{ fontSize: 10, color: '#fff', fontWeight: 'bold' }}>Cover</Body>
                             </View>
@@ -74,8 +91,29 @@ export default function PhotosStep() {
                     </View>
                 ))}
 
+                {/* New Photos */}
+                {listing.images.map((uri, index) => (
+                    <View key={`new-${index}`} style={styles.photoContainer}>
+                        <Image source={{ uri }} style={styles.photo} />
+                        <TouchableOpacity
+                            style={styles.deleteButton}
+                            onPress={() => removeNewImage(index)}
+                        >
+                            <Ionicons name="close" size={16} color="#fff" />
+                        </TouchableOpacity>
+                        {index === 0 && (!isEditMode || listing.existingImages?.length === 0) && (
+                            <View style={styles.coverBadge}>
+                                <Body style={{ fontSize: 10, color: '#fff', fontWeight: 'bold' }}>Cover</Body>
+                            </View>
+                        )}
+                        <View style={styles.newBadge}>
+                            <Body style={{ fontSize: 10, color: '#fff', fontWeight: 'bold' }}>New</Body>
+                        </View>
+                    </View>
+                ))}
+
                 {/* Add Button */}
-                {listing.images.length < 10 && (
+                {totalImages < 10 && (
                     <TouchableOpacity
                         style={[styles.addButton, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
                         onPress={pickImage}
@@ -130,6 +168,15 @@ const styles = StyleSheet.create({
         bottom: 8,
         left: 8,
         backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+    },
+    newBadge: {
+        position: 'absolute',
+        top: 8,
+        left: 8,
+        backgroundColor: 'rgba(31,122,92,0.9)', // Ceylon green
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 4,

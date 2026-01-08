@@ -212,3 +212,29 @@ export async function saveImageMetadata(
         throw error;
     }
 }
+
+/**
+ * Delete image metadata from database and storage
+ * @param imageId The image ID to delete
+ * @param storagePath The storage path to delete
+ */
+export async function deleteImageMetadata(imageId: string, storagePath: string): Promise<void> {
+    try {
+        // Delete from database
+        const { error: dbError } = await supabase
+            .from('listing_images')
+            .delete()
+            .eq('id', imageId);
+
+        if (dbError) {
+            throw new Error(`Failed to delete image metadata: ${dbError.message}`);
+        }
+
+        // Delete from storage
+        await deleteListingImage(storagePath);
+    } catch (error: any) {
+        console.error('Error in deleteImageMetadata:', error);
+        throw error;
+    }
+}
+

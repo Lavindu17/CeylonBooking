@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
 
 export default function ReviewStep() {
-    const { listing, resetListing } = useListingCreation();
+    const { listing, resetListing, isEditMode } = useListingCreation();
     const { user } = useAuth();
     const router = useRouter();
     const [uploading, setUploading] = useState(false);
@@ -22,65 +22,142 @@ export default function ReviewStep() {
         try {
             // Validate user is authenticated
             if (!user?.id) {
-                throw new Error('You must be logged in to create a listing');
+                throw new Error('You must be logged in to publish a listing');
             }
 
-            console.log('Creating listing for user:', user.id);
+            if (isEditMode && listing.id) {
+                // === EDIT MODE ===
+                console.log('Updating listing:', listing.id);
 
-            // 1. First insert the listing to get the ID
-            const { data: newListing, error: listingError } = await supabase
-                .from('listings')
-                .insert({
-                    host_id: user.id,
-                    title: listing.title,
-                    description: listing.description,
-                    price: listing.price,
-                    location: listing.location,
-                    beds: listing.beds,
-                    baths: listing.baths,
-                    facilities: listing.facilities,
-                    latitude: listing.latitude,
-                    longitude: listing.longitude,
-                    google_maps_url: listing.google_maps_url,
-                    // image_url will be set to first uploaded image URL
-                })
-                .select()
-                .single();
+                // 1. Update the listing record
+                const { error: listingError } = await supabase
+                    .from('listings')
+                    .update({
+                        title: listing.title,
+                        description: listing.description,
+                        price: listing.price,
+                        location: listing.location,
+                        beds: listing.beds,
+                        baths: listing.baths,
+                        facilities: listing.facilities,
+                        latitude: listing.latitude,
+                        longitude: listing.longitude,
+                        google_maps_url: listing.google_maps_url,
+                    })
+                    .eq('id', listing.id);
 
-            if (listingError) throw listingError;
-            if (!newListing) throw new Error('Failed to create listing');
+                if (listingError) throw listingError;
 
-            // 2. Upload images to Supabase Storage
-            console.log(`Preparing to upload ${listing.images.length} images...`);
-            const { uploadListingImages, saveImageMetadata } = await import('@/lib/imageUpload');
+                // 2. Handle image deletions
+                // Find which existing images were removed
+                const originalImageIds = new Set((listing.existingImages || []).map(img => img.id));
+                const { data: currentImages } = await supabase
+                    .from('listing_images')
+                    .select('*')
+                    .eq('listing_id', listing.id);
 
-            const uploadedImages = await uploadListingImages(
-                listing.images,
-                newListing.id,
-                (progress) => {
-                    console.log(`Uploading image ${progress.imageIndex + 1}/${listing.images.length}`, progress.status);
+                if (currentImages) {
+                    const removedImages = currentImages.filter(img => !originalImageIds.has(img.id));
+                    const { deleteImageMetadata } = await import('@/lib/imageUpload');
+
+                    for (const img of removedImages) {
+                        console.log('Deleting removed image:', img.id);
+                        await deleteImageMetadata(img.id, img.storage_path);
+                    }
                 }
-            );
 
-            console.log('All images uploaded successfully:', uploadedImages.length);
+                // 3. Upload new images
+                if (listing.images.length > 0) {
+                    console.log(`Uploading ${listing.images.length} new images...`);
+                    const { uploadListingImages, saveImageMetadata } = await import('@/lib/imageUpload');
 
-            // 3. Save image metadata to database
-            await saveImageMetadata(newListing.id, uploadedImages);
+                    const startOrder = (listing.existingImages?.length || 0);
+                    const uploadedImages = await uploadListingImages(
+                        listing.images,
+                        listing.id,
+                        (progress) => {
+                            console.log(`Uploading image ${progress.imageIndex + 1}/${listing.images.length}`, progress.status);
+                        }
+                    );
 
-            // 4. Update listing with the first image URL as fallback
-            const { error: updateError } = await supabase
-                .from('listings')
-                .update({ image_url: uploadedImages[0].url })
-                .eq('id', newListing.id);
+                    // Adjust order for new images
+                    const newImages = uploadedImages.map((img, idx) => ({
+                        ...img,
+                        order: startOrder + idx,
+                    }));
 
-            if (updateError) {
-                console.warn('Failed to update listing image_url:', updateError);
-                // Don't throw - this is just a fallback field
+                    await saveImageMetadata(listing.id, newImages);
+                }
+
+                // 4. Update cover image if needed
+                const coverImageUrl = listing.existingImages?.[0]?.url || listing.images[0];
+                if (coverImageUrl) {
+                    await supabase
+                        .from('listings')
+                        .update({ image_url: coverImageUrl })
+                        .eq('id', listing.id);
+                }
+
+                resetListing();
+                router.replace('/host/create-listing/success?mode=edit');
+
+            } else {
+                // === CREATE MODE ===
+                console.log('Creating listing for user:', user.id);
+
+                // 1. First insert the listing to get the ID
+                const { data: newListing, error: listingError } = await supabase
+                    .from('listings')
+                    .insert({
+                        host_id: user.id,
+                        title: listing.title,
+                        description: listing.description,
+                        price: listing.price,
+                        location: listing.location,
+                        beds: listing.beds,
+                        baths: listing.baths,
+                        facilities: listing.facilities,
+                        latitude: listing.latitude,
+                        longitude: listing.longitude,
+                        google_maps_url: listing.google_maps_url,
+                    })
+                    .select()
+                    .single();
+
+                if (listingError) throw listingError;
+                if (!newListing) throw new Error('Failed to create listing');
+
+                // 2. Upload images to Supabase Storage
+                console.log(`Preparing to upload ${listing.images.length} images...`);
+                const { uploadListingImages, saveImageMetadata } = await import('@/lib/imageUpload');
+
+                const uploadedImages = await uploadListingImages(
+                    listing.images,
+                    newListing.id,
+                    (progress) => {
+                        console.log(`Uploading image ${progress.imageIndex + 1}/${listing.images.length}`, progress.status);
+                    }
+                );
+
+                console.log('All images uploaded successfully:', uploadedImages.length);
+
+                // 3. Save image metadata to database
+                await saveImageMetadata(newListing.id, uploadedImages);
+
+                // 4. Update listing with the first image URL as fallback
+                const { error: updateError } = await supabase
+                    .from('listings')
+                    .update({ image_url: uploadedImages[0].url })
+                    .eq('id', newListing.id);
+
+                if (updateError) {
+                    console.warn('Failed to update listing image_url:', updateError);
+                }
+
+                // 5. Success
+                resetListing();
+                router.replace('/host/create-listing/success');
             }
-
-            // 5. Success
-            resetListing();
-            router.replace('/host/create-listing/success');
 
         } catch (e: any) {
             console.error('Error publishing listing:', e);
@@ -92,17 +169,17 @@ export default function ReviewStep() {
 
     return (
         <WizardLayout
-            title="Review your listing"
-            subtitle="Here's what guests will see. Make sure everything looks good."
+            title={isEditMode ? "Review your changes" : "Review your listing"}
+            subtitle={isEditMode ? "Make sure your updates look good." : "Here's what guests will see. Make sure everything looks good."}
             currentStep={7}
             totalSteps={7}
             onNext={handlePublish}
-            nextLabel={uploading ? "Publishing..." : "Publish Listing"}
+            nextLabel={uploading ? (isEditMode ? "Updating..." : "Publishing...") : (isEditMode ? "Update Listing" : "Publish Listing")}
             isNextDisabled={uploading}
         >
             <ScrollView style={[styles.card, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
                 <Image
-                    source={{ uri: listing.images[0] }}
+                    source={{ uri: listing.existingImages?.[0]?.url || listing.images[0] }}
                     style={styles.coverImage}
                 />
                 <View style={styles.content}>

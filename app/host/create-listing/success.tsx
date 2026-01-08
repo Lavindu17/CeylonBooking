@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/Button';
 import { Body, Title2 } from '@/components/ui/Typography';
 import { BrandColors, SemanticColors, Spacing } from '@/constants/Design';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +10,9 @@ export default function SuccessScreen() {
     const router = useRouter();
     const colorScheme = useColorScheme();
     const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
+    const { mode } = useLocalSearchParams<{ mode?: string }>();
+
+    const isEditMode = mode === 'edit';
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -19,7 +22,7 @@ export default function SuccessScreen() {
                 </View>
 
                 <Title2 style={{ marginTop: Spacing.xl, textAlign: 'center' }}>
-                    Congratulations!{'\n'}Your listing is live.
+                    {isEditMode ? 'Listing Updated!' : 'Congratulations!\nYour listing is live.'}
                 </Title2>
 
                 <Body style={{
@@ -28,13 +31,16 @@ export default function SuccessScreen() {
                     color: colors.textSecondary,
                     paddingHorizontal: Spacing.xl
                 }}>
-                    Your property is now visible to thousands of travelers searching for their next Ceylon stay.
+                    {isEditMode
+                        ? 'Your changes have been saved and are now visible to guests browsing your listing.'
+                        : 'Your property is now visible to thousands of travelers searching for their next Ceylon stay.'
+                    }
                 </Body>
             </View>
 
             <View style={styles.footer}>
                 <Button
-                    title="View My Listing"
+                    title={isEditMode ? "View My Listing" : "View My Listing"}
                     onPress={() => router.replace('/(tabs)/profile')}
                     style={{ marginBottom: Spacing.m }}
                 />

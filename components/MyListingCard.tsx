@@ -70,7 +70,19 @@ export function MyListingCard({ listing, onDelete }: Props) {
                     <View style={styles.actions}>
                         <Pressable
                             style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}
-                            onPress={handleDelete}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                router.push(`/host/edit-listing/${listing.id}`);
+                            }}
+                        >
+                            <Ionicons name="create-outline" size={18} color={BrandColors.ceylonGreen} />
+                        </Pressable>
+                        <Pressable
+                            style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                handleDelete();
+                            }}
                         >
                             <Ionicons name="trash-outline" size={18} color="#ef4444" />
                         </Pressable>
