@@ -74,15 +74,6 @@ export default function LoginScreen() {
                     onPress={() => setShowEmailModal(true)}
                 />
 
-                {/* Google Button */}
-                <Button
-                    title="Continue with Google"
-                    variant="primary"
-                    style={{ backgroundColor: '#000000', marginTop: Spacing.m }}
-                    icon={<Ionicons name="logo-google" size={20} color="#FFF" />}
-                // onPress={promptAsync} // Implement Google Auth
-                />
-
                 <TouchableOpacity
                     onPress={() => router.push('/signup')}
                     style={styles.linkButton}

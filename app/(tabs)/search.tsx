@@ -160,7 +160,15 @@ export default function SearchScreen() {
                 </View>
 
                 {(searchLocation || beds > 1) && (
-                    <Body style={styles.hintText}>Tip: Shake to clear filters</Body>
+                    <TouchableOpacity
+                        onPress={clearFilters}
+                        style={[styles.clearButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
+                    >
+                        <Ionicons name="refresh" size={16} color={BrandColors.ceylonGreen} />
+                        <Body style={{ color: BrandColors.ceylonGreen, marginLeft: Spacing.xs }}>
+                            Clear Filters
+                        </Body>
+                    </TouchableOpacity>
                 )}
             </View>
 
@@ -226,6 +234,16 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    clearButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: Spacing.s,
+        paddingHorizontal: Spacing.m,
+        borderRadius: BorderRadius.button,
+        borderWidth: 1,
+        marginTop: Spacing.m,
     },
     hintText: {
         fontSize: 12,
