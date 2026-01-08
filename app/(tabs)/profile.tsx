@@ -38,7 +38,7 @@ export default function ProfileScreen() {
 
     const [refreshing, setRefreshing] = useState(false);
 
-    const pendingHostBookingsCount = hostBookings.filter(b => b.status === 'pending').length;
+    const pendingHostBookingsCount = hostBookings.filter(b => b.status === 'pending' || b.status === 'payment_submitted').length;
 
     // Tabs configuration
     const tabs = [
@@ -90,7 +90,7 @@ export default function ProfileScreen() {
             ) : (
                 <View>
                     {userBookings.map(booking => (
-                        <BookingCard key={booking.id} booking={booking} />
+                        <BookingCard key={booking.id} booking={booking} userId={user?.id || ''} onReceiptUploaded={refetchUserBookings} />
                     ))}
                 </View>
             )}

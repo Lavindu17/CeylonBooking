@@ -1,6 +1,10 @@
 import { Listing } from './listing';
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
+export type BookingStatus =
+    | 'pending'              // Booking request sent, awaiting payment
+    | 'payment_submitted'    // Guest uploaded receipt, awaiting host verification
+    | 'confirmed'            // Host verified payment and confirmed booking
+    | 'cancelled';           // Booking rejected or cancelled
 
 export interface Booking {
     id: string;
@@ -11,6 +15,11 @@ export interface Booking {
     end_date: string;
     total_price: number;
     status: BookingStatus;
+
+    // Payment verification fields
+    payment_receipt_url?: string;
+    advance_payment_amount?: number;
+    payment_submitted_at?: string;
 }
 
 export interface BookingWithListing extends Booking {
@@ -21,3 +30,4 @@ export interface BookingWithDetails extends Booking {
     listing: Listing;
     guest_email?: string;
 }
+

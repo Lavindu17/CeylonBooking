@@ -3,26 +3,58 @@ import { Body, BodyBold, Title2 } from '@/components/ui/Typography';
 import { BorderRadius, BrandColors, formatCurrency, SemanticColors, Spacing } from '@/constants/Design';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { calculateAdvancePayment } from '@/lib/payment';
 import { supabase } from '@/lib/supabase';
 import { Listing } from '@/types/listing';
+import { BankDetails } from '@/types/profile';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
+import { PaymentInstructionsModal } from './PaymentInstructionsModal';
+import { ReceiptUploadModal } from './ReceiptUploadModal';
 
 type Props = {
     visible: boolean;
     onClose: () => void;
     listing: Listing;
+    onBookingCreated?: () => void;
 };
 
-export function BookingModal({ visible, onClose, listing }: Props) {
+export function BookingModal({ visible, onClose, listing, onBookingCreated }: Props) {
     const { user } = useAuth();
     const [startDate, setStartDate] = useState<string | null>(null);
     const [endDate, setEndDate] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [showPaymentInstructions, setShowPaymentInstructions] = useState(false);
+    const [showReceiptUpload, setShowReceiptUpload] = useState(false);
+    const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
+    const [hostBankDetails, setHostBankDetails] = useState<BankDetails | null>(null);
     const colorScheme = useColorScheme();
     const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
+
+    // Fetch host bank details when modal opens
+    useEffect(() => {
+        if (visible && listing.host_id) {
+            fetchHostBankDetails();
+        }
+    }, [visible, listing.host_id]);
+
+    const fetchHostBankDetails = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('bank_name, account_number, account_holder, branch')
+                .eq('id', listing.host_id)
+                .single();
+
+            if (!error && data) {
+                setHostBankDetails(data as BankDetails);
+            }
+        } catch (err) {
+            console.error('Failed to fetch bank details:', err);
+        }
+    };
 
     const onDayPress = (day: DateData) => {
         if (!startDate || (startDate && endDate)) {
@@ -63,22 +95,50 @@ export function BookingModal({ visible, onClose, listing }: Props) {
     const handleBooking = async () => {
         if (!startDate || !endDate || !user) return;
         setLoading(true);
-        const { error } = await supabase.from('bookings').insert({
+
+        const totalPrice = calculateTotal();
+        const advanceAmount = calculateAdvancePayment(totalPrice);
+
+        const { data, error } = await supabase.from('bookings').insert({
             listing_id: listing.id,
             user_id: user.id,
             start_date: startDate,
             end_date: endDate,
-            total_price: calculateTotal(),
+            total_price: totalPrice,
+            advance_payment_amount: advanceAmount,
             status: 'pending'
-        });
+        }).select().single();
+
         setLoading(false);
 
         if (error) {
             alert('Booking failed: ' + error.message);
-        } else {
-            alert('Booking Confirmed! Check your email.');
-            onClose();
+        } else if (data) {
+            // Store booking ID for receipt upload
+            setCreatedBookingId(data.id);
+            // Show payment instructions instead of simple alert
+            setShowPaymentInstructions(true);
+            // Notify parent component
+            onBookingCreated?.();
         }
+    };
+
+    const handleClosePaymentInstructions = () => {
+        setShowPaymentInstructions(false);
+        onClose();
+        // Reset state
+        setStartDate(null);
+        setEndDate(null);
+        setCreatedBookingId(null);
+    };
+
+    const handleOpenReceiptUpload = () => {
+        setShowReceiptUpload(true);
+    };
+
+    const handleReceiptUploadSuccess = () => {
+        // Booking list will update automatically via real-time subscription
+        setShowReceiptUpload(false);
     };
 
     return (
@@ -138,6 +198,26 @@ export function BookingModal({ visible, onClose, listing }: Props) {
                     </Body>
                 </View>
             </View>
+
+            {/* Payment Instructions Modal */}
+            <PaymentInstructionsModal
+                visible={showPaymentInstructions}
+                onClose={handleClosePaymentInstructions}
+                totalPrice={calculateTotal()}
+                bankDetails={hostBankDetails}
+                onUploadReceipt={handleOpenReceiptUpload}
+            />
+
+            {/* Receipt Upload Modal */}
+            {createdBookingId && user && (
+                <ReceiptUploadModal
+                    visible={showReceiptUpload}
+                    onClose={() => setShowReceiptUpload(false)}
+                    bookingId={createdBookingId}
+                    userId={user.id}
+                    onSuccess={handleReceiptUploadSuccess}
+                />
+            )}
         </Modal>
     );
 }
