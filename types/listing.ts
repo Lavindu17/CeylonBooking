@@ -31,5 +31,11 @@ export interface Listing {
             avatar_url?: string;
         };
     };
+    host_profile?: {
+        id: string;
+        phone?: string;
+        bio?: string;
+        profile_image_url?: string;
+    };
 }
 

@@ -6,12 +6,42 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Props = {
     visible: boolean;
     onClose: () => void;
+};
+
+// Phone number formatting utilities
+const formatPhoneNumber = (value: string): string => {
+    // Remove all non-numeric characters
+    const cleaned = value.replace(/\D/g, '');
+
+    // If starts with 0, convert to +94
+    if (cleaned.startsWith('0')) {
+        const withoutZero = cleaned.substring(1);
+        return '+94' + withoutZero;
+    }
+
+    // If starts with 94, add +
+    if (cleaned.startsWith('94')) {
+        return '+' + cleaned;
+    }
+
+    // If already starts with +94, return as is
+    if (value.startsWith('+94')) {
+        return value;
+    }
+
+    return value;
+};
+
+const validatePhoneNumber = (phone: string): boolean => {
+    // Sri Lankan phone format: +94XXXXXXXXX (10 digits after +94)
+    const phoneRegex = /^\+94[0-9]{9}$/;
+    return phoneRegex.test(phone);
 };
 
 export function SettingsModal({ visible, onClose }: Props) {
@@ -21,9 +51,35 @@ export function SettingsModal({ visible, onClose }: Props) {
 
     const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name || user?.email?.split('@')[0] || '');
     const [email, setEmail] = useState(user?.email || '');
+    const [phone, setPhone] = useState('');
     const [loading, setLoading] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState(user?.user_metadata?.avatar_url || null);
+
+    // Fetch phone number from profiles table
+    useEffect(() => {
+        if (visible && user) {
+            fetchProfile();
+        }
+    }, [visible, user]);
+
+    const fetchProfile = async () => {
+        if (!user) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('phone')
+                .eq('id', user.id)
+                .single();
+
+            if (!error && data?.phone) {
+                setPhone(data.phone);
+            }
+        } catch (err) {
+            console.error('Failed to fetch profile:', err);
+        }
+    };
 
     const handleUpdateProfile = async () => {
         if (!displayName.trim()) {
@@ -158,6 +214,46 @@ export function SettingsModal({ visible, onClose }: Props) {
         }
     };
 
+    const handleUpdatePhone = async () => {
+        const trimmedPhone = phone.trim();
+
+        if (!trimmedPhone) {
+            Alert.alert('Error', 'Phone number cannot be empty');
+            return;
+        }
+
+        const formattedPhone = formatPhoneNumber(trimmedPhone);
+
+        if (!validatePhoneNumber(formattedPhone)) {
+            Alert.alert(
+                'Invalid Phone Number',
+                'Please enter a valid Sri Lankan phone number (e.g., +94771234567 or 0771234567)'
+            );
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Update or insert profile
+            const { error } = await supabase
+                .from('profiles')
+                .upsert({
+                    id: user!.id,
+                    phone: formattedPhone,
+                    updated_at: new Date().toISOString(),
+                });
+
+            if (error) throw error;
+
+            setPhone(formattedPhone);
+            Alert.alert('Success', 'Phone number updated successfully');
+        } catch (error) {
+            Alert.alert('Error', error instanceof Error ? error.message : 'Failed to update phone number');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleLogout = () => {
         Alert.alert('Log Out', 'Are you sure you want to log out?', [
             { text: 'Cancel', style: 'cancel' },
@@ -190,7 +286,7 @@ export function SettingsModal({ visible, onClose }: Props) {
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.content}>
+                    <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                         {/* Profile Picture */}
                         <View style={styles.section}>
                             <BodyBold style={{ marginBottom: Spacing.m }}>Profile Picture</BodyBold>
@@ -252,6 +348,40 @@ export function SettingsModal({ visible, onClose }: Props) {
                         {/* Divider */}
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
+                        {/* Phone Number */}
+                        <View style={styles.section}>
+                            <BodyBold style={{ marginBottom: Spacing.s }}>Phone Number</BodyBold>
+                            <TextInput
+                                style={[
+                                    styles.input,
+                                    {
+                                        backgroundColor: colors.backgroundSecondary,
+                                        color: colors.textPrimary,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                value={phone}
+                                onChangeText={setPhone}
+                                placeholder="+94 77 123 4567"
+                                placeholderTextColor={colors.textTertiary}
+                                keyboardType="phone-pad"
+                            />
+                            <Body style={{ color: colors.textSecondary, fontSize: 13, marginTop: Spacing.xs }}>
+                                Sri Lankan format: +94XXXXXXXXX or 07XXXXXXXX
+                            </Body>
+                            <Button
+                                title="Update Phone"
+                                onPress={handleUpdatePhone}
+                                loading={loading}
+                                disabled={loading}
+                                size="medium"
+                                style={{ marginTop: Spacing.s }}
+                            />
+                        </View>
+
+                        {/* Divider */}
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
                         {/* Email */}
                         <View style={styles.section}>
                             <BodyBold style={{ marginBottom: Spacing.s }}>Email Address</BodyBold>
@@ -297,7 +427,7 @@ export function SettingsModal({ visible, onClose }: Props) {
                                 fullWidth
                             />
                         </View>
-                    </View>
+                    </ScrollView>
                 </View>
             </View>
         </Modal>

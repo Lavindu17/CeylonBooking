@@ -1,18 +1,22 @@
 import { BookingModal } from '@/components/BookingModal';
+import { HostProfileModal } from '@/components/HostProfileModal';
 import { Button } from '@/components/ui/Button';
 import { Body, Caption1, Headline, Title2 } from '@/components/ui/Typography';
 import { BorderRadius, BrandColors, formatPricePerNight, Layout, SemanticColors, Shadows, Spacing } from '@/constants/Design';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { Listing } from '@/types/listing';
+import { UserProfile } from '@/types/profile';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Dimensions,
     FlatList,
     Image,
+    Linking,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -26,6 +30,7 @@ export default function ListingDetails() {
     const { id } = useLocalSearchParams();
     const [listing, setListing] = useState<Listing | null>(null);
     const [isBookingModalVisible, setBookingModalVisible] = useState(false);
+    const [showHostProfile, setShowHostProfile] = useState(false);
     const router = useRouter();
     const colorScheme = useColorScheme();
     const colors = colorScheme === 'dark' ? SemanticColors.dark : SemanticColors.light;
@@ -55,14 +60,17 @@ export default function ListingDetails() {
             return;
         }
 
-        console.log('Fetched listing data:', listingData);
-        console.log('listing_images from DB:', listingData.listing_images);
-
         // Sort images by order
         if (listingData.listing_images) {
             listingData.listing_images.sort((a: any, b: any) => a.order - b.order);
-            console.log('Sorted images:', listingData.listing_images);
         }
+
+        // Fetch host profile data
+        const { data: hostProfile } = await supabase
+            .from('profiles')
+            .select('id, phone, bio, profile_image_url')
+            .eq('id', listingData.host_id)
+            .single();
 
         // Fetch host data using RPC function
         const { data: hostData, error: hostError } = await supabase
@@ -71,15 +79,13 @@ export default function ListingDetails() {
 
         if (hostError) {
             console.error('Host data error:', hostError);
-            // Set listing without host data
             const finalListing = {
                 ...listingData,
-                images: listingData.listing_images || []
+                images: listingData.listing_images || [],
+                host_profile: hostProfile || null
             };
-            console.log('Setting listing (no host):', finalListing);
             setListing(finalListing);
         } else if (hostData) {
-            // Combine listing with host data
             const finalListing = {
                 ...listingData,
                 images: listingData.listing_images || [],
@@ -90,21 +96,50 @@ export default function ListingDetails() {
                         display_name: (hostData as any).display_name,
                         avatar_url: (hostData as any).avatar_url
                     }
-                }
+                },
+                host_profile: hostProfile || null
             };
-            console.log('Setting listing (with host):', finalListing);
-            console.log('Images count:', finalListing.images?.length);
             setListing(finalListing);
         } else {
-            // No host data found
             const finalListing = {
                 ...listingData,
-                images: listingData.listing_images || []
+                images: listingData.listing_images || [],
+                host_profile: hostProfile || null
             };
-            console.log('Setting listing (no host data found):', finalListing);
             setListing(finalListing);
         }
     }
+
+    const handleCall = () => {
+        if (!listing?.host_profile?.phone) {
+            Alert.alert('No Phone Number', 'This host hasn\'t added their phone number yet.');
+            return;
+        }
+
+        const hostName = listing.host?.raw_user_meta_data?.display_name || 'the host';
+        Alert.alert(
+            'Call Host',
+            `Would you like to call ${hostName}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Call',
+                    onPress: () => {
+                        Linking.openURL(`tel:${listing.host_profile!.phone}`);
+                    },
+                },
+            ]
+        );
+    };
+
+    const hostProfile: UserProfile | null = listing?.host_profile ? {
+        id: listing.host_profile.id!,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        phone: listing.host_profile.phone,
+        bio: listing.host_profile.bio,
+        profile_image_url: listing.host_profile.profile_image_url,
+    } : null;
 
     if (!listing) return (
         <View style={[styles.loading, { backgroundColor: colors.background }]}>
@@ -189,10 +224,15 @@ export default function ListingDetails() {
 
                     {/* Host Section */}
                     <View style={styles.hostSection}>
-                        <View style={styles.hostInfo}>
+                        <TouchableOpacity
+                            style={styles.hostInfo}
+                            onPress={() => setShowHostProfile(true)}
+                            activeOpacity={0.7}
+                        >
                             <Image
                                 source={{
-                                    uri: listing.host?.raw_user_meta_data?.avatar_url
+                                    uri: listing.host_profile?.profile_image_url
+                                        || listing.host?.raw_user_meta_data?.avatar_url
                                         || `https://i.pravatar.cc/150?u=${listing.host?.email}`
                                 }}
                                 style={styles.avatar}
@@ -205,9 +245,12 @@ export default function ListingDetails() {
                                 </Headline>
                                 <Caption1 style={{ color: colors.textSecondary }}>{listing.host?.email}</Caption1>
                             </View>
-                        </View>
-                        <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}>
-                            <Ionicons name="call" size={20} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}
+                            onPress={handleCall}
+                        >
+                            <Ionicons name="call" size={20} color={BrandColors.ceylonGreen} />
                         </TouchableOpacity>
                     </View>
 
@@ -287,6 +330,15 @@ export default function ListingDetails() {
                 visible={isBookingModalVisible}
                 onClose={() => setBookingModalVisible(false)}
                 listing={listing}
+            />
+
+            {/* Host Profile Modal */}
+            <HostProfileModal
+                visible={showHostProfile}
+                onClose={() => setShowHostProfile(false)}
+                host={hostProfile}
+                hostName={listing.host?.raw_user_meta_data?.display_name || listing.host?.email?.split('@')[0] || 'Host'}
+                hostEmail={listing.host?.email}
             />
         </View>
     );

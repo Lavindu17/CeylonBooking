@@ -5,8 +5,9 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { calculateAdvancePayment } from '@/lib/payment';
 import { BookingWithDetails } from '@/types/booking';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Alert, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ReceiptViewerModal } from './ReceiptViewerModal';
 
 type Props = {
@@ -162,7 +163,8 @@ export function HostBookingCard({ booking, onUpdateStatus }: Props) {
                             <Image
                                 source={{ uri: booking.payment_receipt_url }}
                                 style={styles.receiptThumbnail}
-                                resizeMode="cover"
+                                contentFit="cover"
+                                cachePolicy="memory-disk"
                             />
                             <View style={styles.receiptOverlay}>
                                 <Ionicons name="eye" size={24} color="#fff" />
@@ -218,7 +220,7 @@ export function HostBookingCard({ booking, onUpdateStatus }: Props) {
                     <View style={styles.actions}>
                         <Button
                             title="Reject"
-                            variant="secondary"
+                            variant="destructive"
                             onPress={handleReject}
                             disabled={loading}
                             style={{ flex: 1, marginRight: Spacing.xs }}

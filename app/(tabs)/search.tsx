@@ -52,13 +52,44 @@ export default function SearchScreen() {
 
     async function fetchListings() {
         setLoading(true);
-        const { data, error } = await supabase.from('listings').select('*');
+        const { data, error } = await supabase.from('listings').select(`
+            *,
+            listing_images (
+                id,
+                url,
+                order
+            )
+        `);
+
         if (error) {
             console.error(error);
-        } else {
-            setListings(data || []);
-            setFilteredListings(data || []);
+            setLoading(false);
+            return;
         }
+
+        // Get unique host IDs
+        const hostIds = [...new Set(data?.map((l: any) => l.host_id) || [])];
+
+        // Fetch profiles for all hosts
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, phone, bio, profile_image_url')
+            .in('id', hostIds);
+
+        // Create a map of profiles by id
+        const profilesMap = new Map(
+            profiles?.map(p => [p.id, p]) || []
+        );
+
+        // Add host_profile to each listing
+        const listingsWithProfiles = (data || []).map((listing: any) => ({
+            ...listing,
+            images: listing.listing_images?.sort((a: any, b: any) => a.order - b.order) || [],
+            host_profile: profilesMap.get(listing.host_id) || null
+        }));
+
+        setListings(listingsWithProfiles);
+        setFilteredListings(listingsWithProfiles);
         setLoading(false);
     }
 

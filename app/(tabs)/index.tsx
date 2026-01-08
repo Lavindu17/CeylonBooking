@@ -43,10 +43,25 @@ export default function HomeScreen() {
 
       if (error) throw error;
 
-      // Map listing_images to images and sort by order
+      // Get unique host IDs
+      const hostIds = [...new Set(data?.map((l: any) => l.host_id) || [])];
+
+      // Fetch profiles for all hosts
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, phone, bio, profile_image_url')
+        .in('id', hostIds);
+
+      // Create a map of profiles by id
+      const profilesMap = new Map(
+        profiles?.map(p => [p.id, p]) || []
+      );
+
+      // Map listing_images to images and add host_profile
       const listingsWithImages = (data || []).map((listing: any) => ({
         ...listing,
-        images: listing.listing_images?.sort((a: any, b: any) => a.order - b.order) || []
+        images: listing.listing_images?.sort((a: any, b: any) => a.order - b.order) || [],
+        host_profile: profilesMap.get(listing.host_id) || null
       }));
 
       setListings(listingsWithImages);
