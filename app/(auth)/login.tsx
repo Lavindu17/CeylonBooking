@@ -18,8 +18,6 @@ import {
     useColorScheme
 } from 'react-native';
 
-const HERO_IMAGE = 'https://images.unsplash.com/photo-1586616091465-b74659b0f49f?q=80&w=2070'; // Sri Lanka Landscape
-
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -52,7 +50,7 @@ export default function LoginScreen() {
 
             {/* Hero Image */}
             <Image
-                source={{ uri: HERO_IMAGE }}
+                source={require('@/assets/images/heroimage.png')}
                 style={styles.heroImage}
                 resizeMode="cover"
             />
@@ -60,7 +58,7 @@ export default function LoginScreen() {
             {/* Content Sheet */}
             <View style={[styles.content, { backgroundColor: colors.background }]}>
                 <View style={styles.header}>
-                    <LargeTitle align="center">Welcome to CeylonStay</LargeTitle>
+                    <LargeTitle align="center">Welcome to CeylonBooking</LargeTitle>
                     <Body align="center" style={{ color: colors.textSecondary, marginTop: Spacing.s }}>
                         Find your perfect stay across Sri Lanka
                     </Body>
